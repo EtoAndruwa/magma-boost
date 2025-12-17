@@ -1,0 +1,894 @@
+#include <immintrin.h>
+#include <linux/types.h>
+#include <stdalign.h>
+#include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/time.h>
+#include <time.h>
+#include <x86intrin.h>
+
+typedef uint8_t byte;
+typedef uint32_t word32;
+
+typedef struct {
+  uint32_t k[8];
+} magma_subkeys;
+
+#define GETU32_BE(pt)                                                          \
+  (((uint32_t)(pt)[0] << 24) | ((uint32_t)(pt)[1] << 16) |                     \
+   ((uint32_t)(pt)[2] << 8) | ((uint32_t)(pt)[3]))
+
+#ifndef BSWAP32
+#define BSWAP32(n) __builtin_bswap32(n)
+#endif
+
+static uint32_t pi87[256] __attribute__((aligned(32))) = {
+    0x000000c0, 0x000000f0, 0x00000090, 0x000000a8, 0x000000b0, 0x000000c8,
+    0x00000088, 0x000000e0, 0x000000f8, 0x000000a0, 0x000000d8, 0x00000080,
+    0x000000e8, 0x000000d0, 0x00000098, 0x000000b8, 0x000003c0, 0x000003f0,
+    0x00000390, 0x000003a8, 0x000003b0, 0x000003c8, 0x00000388, 0x000003e0,
+    0x000003f8, 0x000003a0, 0x000003d8, 0x00000380, 0x000003e8, 0x000003d0,
+    0x00000398, 0x000003b8, 0x00000740, 0x00000770, 0x00000710, 0x00000728,
+    0x00000730, 0x00000748, 0x00000708, 0x00000760, 0x00000778, 0x00000720,
+    0x00000758, 0x00000700, 0x00000768, 0x00000750, 0x00000718, 0x00000738,
+    0x000006c0, 0x000006f0, 0x00000690, 0x000006a8, 0x000006b0, 0x000006c8,
+    0x00000688, 0x000006e0, 0x000006f8, 0x000006a0, 0x000006d8, 0x00000680,
+    0x000006e8, 0x000006d0, 0x00000698, 0x000006b8, 0x00000040, 0x00000070,
+    0x00000010, 0x00000028, 0x00000030, 0x00000048, 0x00000008, 0x00000060,
+    0x00000078, 0x00000020, 0x00000058, 0x00000000, 0x00000068, 0x00000050,
+    0x00000018, 0x00000038, 0x000002c0, 0x000002f0, 0x00000290, 0x000002a8,
+    0x000002b0, 0x000002c8, 0x00000288, 0x000002e0, 0x000002f8, 0x000002a0,
+    0x000002d8, 0x00000280, 0x000002e8, 0x000002d0, 0x00000298, 0x000002b8,
+    0x00000440, 0x00000470, 0x00000410, 0x00000428, 0x00000430, 0x00000448,
+    0x00000408, 0x00000460, 0x00000478, 0x00000420, 0x00000458, 0x00000400,
+    0x00000468, 0x00000450, 0x00000418, 0x00000438, 0x000001c0, 0x000001f0,
+    0x00000190, 0x000001a8, 0x000001b0, 0x000001c8, 0x00000188, 0x000001e0,
+    0x000001f8, 0x000001a0, 0x000001d8, 0x00000180, 0x000001e8, 0x000001d0,
+    0x00000198, 0x000001b8, 0x00000240, 0x00000270, 0x00000210, 0x00000228,
+    0x00000230, 0x00000248, 0x00000208, 0x00000260, 0x00000278, 0x00000220,
+    0x00000258, 0x00000200, 0x00000268, 0x00000250, 0x00000218, 0x00000238,
+    0x000007c0, 0x000007f0, 0x00000790, 0x000007a8, 0x000007b0, 0x000007c8,
+    0x00000788, 0x000007e0, 0x000007f8, 0x000007a0, 0x000007d8, 0x00000780,
+    0x000007e8, 0x000007d0, 0x00000798, 0x000007b8, 0x00000540, 0x00000570,
+    0x00000510, 0x00000528, 0x00000530, 0x00000548, 0x00000508, 0x00000560,
+    0x00000578, 0x00000520, 0x00000558, 0x00000500, 0x00000568, 0x00000550,
+    0x00000518, 0x00000538, 0x00000340, 0x00000370, 0x00000310, 0x00000328,
+    0x00000330, 0x00000348, 0x00000308, 0x00000360, 0x00000378, 0x00000320,
+    0x00000358, 0x00000300, 0x00000368, 0x00000350, 0x00000318, 0x00000338,
+    0x000004c0, 0x000004f0, 0x00000490, 0x000004a8, 0x000004b0, 0x000004c8,
+    0x00000488, 0x000004e0, 0x000004f8, 0x000004a0, 0x000004d8, 0x00000480,
+    0x000004e8, 0x000004d0, 0x00000498, 0x000004b8, 0x00000640, 0x00000670,
+    0x00000610, 0x00000628, 0x00000630, 0x00000648, 0x00000608, 0x00000660,
+    0x00000678, 0x00000620, 0x00000658, 0x00000600, 0x00000668, 0x00000650,
+    0x00000618, 0x00000638, 0x000005c0, 0x000005f0, 0x00000590, 0x000005a8,
+    0x000005b0, 0x000005c8, 0x00000588, 0x000005e0, 0x000005f8, 0x000005a0,
+    0x000005d8, 0x00000580, 0x000005e8, 0x000005d0, 0x00000598, 0x000005b8,
+    0x00000140, 0x00000170, 0x00000110, 0x00000128, 0x00000130, 0x00000148,
+    0x00000108, 0x00000160, 0x00000178, 0x00000120, 0x00000158, 0x00000100,
+    0x00000168, 0x00000150, 0x00000118, 0x00000138};
+
+static uint32_t pi65[256] __attribute__((aligned(32))) = {
+    0xb8000002, 0xf8000002, 0xa8000002, 0xd0000002, 0xc0000002, 0x88000002,
+    0xb0000002, 0xe8000002, 0x80000002, 0xc8000002, 0x98000002, 0xf0000002,
+    0xd8000002, 0xa0000002, 0x90000002, 0xe0000002, 0xb8000006, 0xf8000006,
+    0xa8000006, 0xd0000006, 0xc0000006, 0x88000006, 0xb0000006, 0xe8000006,
+    0x80000006, 0xc8000006, 0x98000006, 0xf0000006, 0xd8000006, 0xa0000006,
+    0x90000006, 0xe0000006, 0xb8000007, 0xf8000007, 0xa8000007, 0xd0000007,
+    0xc0000007, 0x88000007, 0xb0000007, 0xe8000007, 0x80000007, 0xc8000007,
+    0x98000007, 0xf0000007, 0xd8000007, 0xa0000007, 0x90000007, 0xe0000007,
+    0x38000003, 0x78000003, 0x28000003, 0x50000003, 0x40000003, 0x08000003,
+    0x30000003, 0x68000003, 0x00000003, 0x48000003, 0x18000003, 0x70000003,
+    0x58000003, 0x20000003, 0x10000003, 0x60000003, 0xb8000004, 0xf8000004,
+    0xa8000004, 0xd0000004, 0xc0000004, 0x88000004, 0xb0000004, 0xe8000004,
+    0x80000004, 0xc8000004, 0x98000004, 0xf0000004, 0xd8000004, 0xa0000004,
+    0x90000004, 0xe0000004, 0x38000001, 0x78000001, 0x28000001, 0x50000001,
+    0x40000001, 0x08000001, 0x30000001, 0x68000001, 0x00000001, 0x48000001,
+    0x18000001, 0x70000001, 0x58000001, 0x20000001, 0x10000001, 0x60000001,
+    0x38000006, 0x78000006, 0x28000006, 0x50000006, 0x40000006, 0x08000006,
+    0x30000006, 0x68000006, 0x00000006, 0x48000006, 0x18000006, 0x70000006,
+    0x58000006, 0x20000006, 0x10000006, 0x60000006, 0x38000005, 0x78000005,
+    0x28000005, 0x50000005, 0x40000005, 0x08000005, 0x30000005, 0x68000005,
+    0x00000005, 0x48000005, 0x18000005, 0x70000005, 0x58000005, 0x20000005,
+    0x10000005, 0x60000005, 0xb8000005, 0xf8000005, 0xa8000005, 0xd0000005,
+    0xc0000005, 0x88000005, 0xb0000005, 0xe8000005, 0x80000005, 0xc8000005,
+    0x98000005, 0xf0000005, 0xd8000005, 0xa0000005, 0x90000005, 0xe0000005,
+    0xb8000003, 0xf8000003, 0xa8000003, 0xd0000003, 0xc0000003, 0x88000003,
+    0xb0000003, 0xe8000003, 0x80000003, 0xc8000003, 0x98000003, 0xf0000003,
+    0xd8000003, 0xa0000003, 0x90000003, 0xe0000003, 0x38000004, 0x78000004,
+    0x28000004, 0x50000004, 0x40000004, 0x08000004, 0x30000004, 0x68000004,
+    0x00000004, 0x48000004, 0x18000004, 0x70000004, 0x58000004, 0x20000004,
+    0x10000004, 0x60000004, 0xb8000000, 0xf8000000, 0xa8000000, 0xd0000000,
+    0xc0000000, 0x88000000, 0xb0000000, 0xe8000000, 0x80000000, 0xc8000000,
+    0x98000000, 0xf0000000, 0xd8000000, 0xa0000000, 0x90000000, 0xe0000000,
+    0x38000002, 0x78000002, 0x28000002, 0x50000002, 0x40000002, 0x08000002,
+    0x30000002, 0x68000002, 0x00000002, 0x48000002, 0x18000002, 0x70000002,
+    0x58000002, 0x20000002, 0x10000002, 0x60000002, 0xb8000001, 0xf8000001,
+    0xa8000001, 0xd0000001, 0xc0000001, 0x88000001, 0xb0000001, 0xe8000001,
+    0x80000001, 0xc8000001, 0x98000001, 0xf0000001, 0xd8000001, 0xa0000001,
+    0x90000001, 0xe0000001, 0x38000007, 0x78000007, 0x28000007, 0x50000007,
+    0x40000007, 0x08000007, 0x30000007, 0x68000007, 0x00000007, 0x48000007,
+    0x18000007, 0x70000007, 0x58000007, 0x20000007, 0x10000007, 0x60000007,
+    0x38000000, 0x78000000, 0x28000000, 0x50000000, 0x40000000, 0x08000000,
+    0x30000000, 0x68000000, 0x00000000, 0x48000000, 0x18000000, 0x70000000,
+    0x58000000, 0x20000000, 0x10000000, 0x60000000};
+
+static uint32_t pi43[256] __attribute__((aligned(32))) = {
+    0x06580000, 0x06180000, 0x06280000, 0x06400000, 0x06100000, 0x06780000,
+    0x06500000, 0x06680000, 0x06700000, 0x06080000, 0x06380000, 0x06200000,
+    0x06600000, 0x06480000, 0x06300000, 0x06000000, 0x04580000, 0x04180000,
+    0x04280000, 0x04400000, 0x04100000, 0x04780000, 0x04500000, 0x04680000,
+    0x04700000, 0x04080000, 0x04380000, 0x04200000, 0x04600000, 0x04480000,
+    0x04300000, 0x04000000, 0x01580000, 0x01180000, 0x01280000, 0x01400000,
+    0x01100000, 0x01780000, 0x01500000, 0x01680000, 0x01700000, 0x01080000,
+    0x01380000, 0x01200000, 0x01600000, 0x01480000, 0x01300000, 0x01000000,
+    0x00d80000, 0x00980000, 0x00a80000, 0x00c00000, 0x00900000, 0x00f80000,
+    0x00d00000, 0x00e80000, 0x00f00000, 0x00880000, 0x00b80000, 0x00a00000,
+    0x00e00000, 0x00c80000, 0x00b00000, 0x00800000, 0x06d80000, 0x06980000,
+    0x06a80000, 0x06c00000, 0x06900000, 0x06f80000, 0x06d00000, 0x06e80000,
+    0x06f00000, 0x06880000, 0x06b80000, 0x06a00000, 0x06e00000, 0x06c80000,
+    0x06b00000, 0x06800000, 0x02580000, 0x02180000, 0x02280000, 0x02400000,
+    0x02100000, 0x02780000, 0x02500000, 0x02680000, 0x02700000, 0x02080000,
+    0x02380000, 0x02200000, 0x02600000, 0x02480000, 0x02300000, 0x02000000,
+    0x07d80000, 0x07980000, 0x07a80000, 0x07c00000, 0x07900000, 0x07f80000,
+    0x07d00000, 0x07e80000, 0x07f00000, 0x07880000, 0x07b80000, 0x07a00000,
+    0x07e00000, 0x07c80000, 0x07b00000, 0x07800000, 0x03580000, 0x03180000,
+    0x03280000, 0x03400000, 0x03100000, 0x03780000, 0x03500000, 0x03680000,
+    0x03700000, 0x03080000, 0x03380000, 0x03200000, 0x03600000, 0x03480000,
+    0x03300000, 0x03000000, 0x03d80000, 0x03980000, 0x03a80000, 0x03c00000,
+    0x03900000, 0x03f80000, 0x03d00000, 0x03e80000, 0x03f00000, 0x03880000,
+    0x03b80000, 0x03a00000, 0x03e00000, 0x03c80000, 0x03b00000, 0x03800000,
+    0x00580000, 0x00180000, 0x00280000, 0x00400000, 0x00100000, 0x00780000,
+    0x00500000, 0x00680000, 0x00700000, 0x00080000, 0x00380000, 0x00200000,
+    0x00600000, 0x00480000, 0x00300000, 0x00000000, 0x05580000, 0x05180000,
+    0x05280000, 0x05400000, 0x05100000, 0x05780000, 0x05500000, 0x05680000,
+    0x05700000, 0x05080000, 0x05380000, 0x05200000, 0x05600000, 0x05480000,
+    0x05300000, 0x05000000, 0x02d80000, 0x02980000, 0x02a80000, 0x02c00000,
+    0x02900000, 0x02f80000, 0x02d00000, 0x02e80000, 0x02f00000, 0x02880000,
+    0x02b80000, 0x02a00000, 0x02e00000, 0x02c80000, 0x02b00000, 0x02800000,
+    0x01d80000, 0x01980000, 0x01a80000, 0x01c00000, 0x01900000, 0x01f80000,
+    0x01d00000, 0x01e80000, 0x01f00000, 0x01880000, 0x01b80000, 0x01a00000,
+    0x01e00000, 0x01c80000, 0x01b00000, 0x01800000, 0x07580000, 0x07180000,
+    0x07280000, 0x07400000, 0x07100000, 0x07780000, 0x07500000, 0x07680000,
+    0x07700000, 0x07080000, 0x07380000, 0x07200000, 0x07600000, 0x07480000,
+    0x07300000, 0x07000000, 0x04d80000, 0x04980000, 0x04a80000, 0x04c00000,
+    0x04900000, 0x04f80000, 0x04d00000, 0x04e80000, 0x04f00000, 0x04880000,
+    0x04b80000, 0x04a00000, 0x04e00000, 0x04c80000, 0x04b00000, 0x04800000,
+    0x05d80000, 0x05980000, 0x05a80000, 0x05c00000, 0x05900000, 0x05f80000,
+    0x05d00000, 0x05e80000, 0x05f00000, 0x05880000, 0x05b80000, 0x05a00000,
+    0x05e00000, 0x05c80000, 0x05b00000, 0x05800000};
+
+static uint32_t pi21[256] __attribute__((aligned(32))) = {
+    0x00036000, 0x00032000, 0x00033000, 0x00031000, 0x00035000, 0x00032800,
+    0x00035800, 0x00034800, 0x00037000, 0x00034000, 0x00036800, 0x00033800,
+    0x00030000, 0x00031800, 0x00037800, 0x00030800, 0x00046000, 0x00042000,
+    0x00043000, 0x00041000, 0x00045000, 0x00042800, 0x00045800, 0x00044800,
+    0x00047000, 0x00044000, 0x00046800, 0x00043800, 0x00040000, 0x00041800,
+    0x00047800, 0x00040800, 0x00016000, 0x00012000, 0x00013000, 0x00011000,
+    0x00015000, 0x00012800, 0x00015800, 0x00014800, 0x00017000, 0x00014000,
+    0x00016800, 0x00013800, 0x00010000, 0x00011800, 0x00017800, 0x00010800,
+    0x0001e000, 0x0001a000, 0x0001b000, 0x00019000, 0x0001d000, 0x0001a800,
+    0x0001d800, 0x0001c800, 0x0001f000, 0x0001c000, 0x0001e800, 0x0001b800,
+    0x00018000, 0x00019800, 0x0001f800, 0x00018800, 0x0004e000, 0x0004a000,
+    0x0004b000, 0x00049000, 0x0004d000, 0x0004a800, 0x0004d800, 0x0004c800,
+    0x0004f000, 0x0004c000, 0x0004e800, 0x0004b800, 0x00048000, 0x00049800,
+    0x0004f800, 0x00048800, 0x00056000, 0x00052000, 0x00053000, 0x00051000,
+    0x00055000, 0x00052800, 0x00055800, 0x00054800, 0x00057000, 0x00054000,
+    0x00056800, 0x00053800, 0x00050000, 0x00051800, 0x00057800, 0x00050800,
+    0x0002e000, 0x0002a000, 0x0002b000, 0x00029000, 0x0002d000, 0x0002a800,
+    0x0002d800, 0x0002c800, 0x0002f000, 0x0002c000, 0x0002e800, 0x0002b800,
+    0x00028000, 0x00029800, 0x0002f800, 0x00028800, 0x00066000, 0x00062000,
+    0x00063000, 0x00061000, 0x00065000, 0x00062800, 0x00065800, 0x00064800,
+    0x00067000, 0x00064000, 0x00066800, 0x00063800, 0x00060000, 0x00061800,
+    0x00067800, 0x00060800, 0x0000e000, 0x0000a000, 0x0000b000, 0x00009000,
+    0x0000d000, 0x0000a800, 0x0000d800, 0x0000c800, 0x0000f000, 0x0000c000,
+    0x0000e800, 0x0000b800, 0x00008000, 0x00009800, 0x0000f800, 0x00008800,
+    0x00076000, 0x00072000, 0x00073000, 0x00071000, 0x00075000, 0x00072800,
+    0x00075800, 0x00074800, 0x00077000, 0x00074000, 0x00076800, 0x00073800,
+    0x00070000, 0x00071800, 0x00077800, 0x00070800, 0x00026000, 0x00022000,
+    0x00023000, 0x00021000, 0x00025000, 0x00022800, 0x00025800, 0x00024800,
+    0x00027000, 0x00024000, 0x00026800, 0x00023800, 0x00020000, 0x00021800,
+    0x00027800, 0x00020800, 0x0003e000, 0x0003a000, 0x0003b000, 0x00039000,
+    0x0003d000, 0x0003a800, 0x0003d800, 0x0003c800, 0x0003f000, 0x0003c000,
+    0x0003e800, 0x0003b800, 0x00038000, 0x00039800, 0x0003f800, 0x00038800,
+    0x0005e000, 0x0005a000, 0x0005b000, 0x00059000, 0x0005d000, 0x0005a800,
+    0x0005d800, 0x0005c800, 0x0005f000, 0x0005c000, 0x0005e800, 0x0005b800,
+    0x00058000, 0x00059800, 0x0005f800, 0x00058800, 0x0006e000, 0x0006a000,
+    0x0006b000, 0x00069000, 0x0006d000, 0x0006a800, 0x0006d800, 0x0006c800,
+    0x0006f000, 0x0006c000, 0x0006e800, 0x0006b800, 0x00068000, 0x00069800,
+    0x0006f800, 0x00068800, 0x00006000, 0x00002000, 0x00003000, 0x00001000,
+    0x00005000, 0x00002800, 0x00005800, 0x00004800, 0x00007000, 0x00004000,
+    0x00006800, 0x00003800, 0x00000000, 0x00001800, 0x00007800, 0x00000800,
+    0x0007e000, 0x0007a000, 0x0007b000, 0x00079000, 0x0007d000, 0x0007a800,
+    0x0007d800, 0x0007c800, 0x0007f000, 0x0007c000, 0x0007e800, 0x0007b800,
+    0x00078000, 0x00079800, 0x0007f800, 0x00078800};
+
+inline static uint32_t f(uint32_t x) {
+  return pi87[x >> 24 & 0xff] | pi65[x >> 16 & 0xff] | pi43[x >> 8 & 0xff] |
+         pi21[x & 0xff];
+}
+
+static void magma_encrypt_scalar(magma_subkeys *subkeys, uint8_t *out,
+                                 const uint8_t *in) {
+  uint32_t n2 = GETU32_BE(in);
+  uint32_t n1 = GETU32_BE(in + 4);
+
+  n2 ^= f(n1 + subkeys->k[0]);
+  n1 ^= f(n2 + subkeys->k[1]);
+  n2 ^= f(n1 + subkeys->k[2]);
+  n1 ^= f(n2 + subkeys->k[3]);
+  n2 ^= f(n1 + subkeys->k[4]);
+  n1 ^= f(n2 + subkeys->k[5]);
+  n2 ^= f(n1 + subkeys->k[6]);
+  n1 ^= f(n2 + subkeys->k[7]);
+
+  n2 ^= f(n1 + subkeys->k[0]);
+  n1 ^= f(n2 + subkeys->k[1]);
+  n2 ^= f(n1 + subkeys->k[2]);
+  n1 ^= f(n2 + subkeys->k[3]);
+  n2 ^= f(n1 + subkeys->k[4]);
+  n1 ^= f(n2 + subkeys->k[5]);
+  n2 ^= f(n1 + subkeys->k[6]);
+  n1 ^= f(n2 + subkeys->k[7]);
+
+  n2 ^= f(n1 + subkeys->k[0]);
+  n1 ^= f(n2 + subkeys->k[1]);
+  n2 ^= f(n1 + subkeys->k[2]);
+  n1 ^= f(n2 + subkeys->k[3]);
+  n2 ^= f(n1 + subkeys->k[4]);
+  n1 ^= f(n2 + subkeys->k[5]);
+  n2 ^= f(n1 + subkeys->k[6]);
+  n1 ^= f(n2 + subkeys->k[7]);
+
+  n2 ^= f(n1 + subkeys->k[7]);
+  n1 ^= f(n2 + subkeys->k[6]);
+  n2 ^= f(n1 + subkeys->k[5]);
+  n1 ^= f(n2 + subkeys->k[4]);
+  n2 ^= f(n1 + subkeys->k[3]);
+  n1 ^= f(n2 + subkeys->k[2]);
+  n2 ^= f(n1 + subkeys->k[1]);
+  n1 ^= f(n2 + subkeys->k[0]);
+
+#ifdef __LITTLE_ENDIAN
+  n1 = BSWAP32(n1);
+  n2 = BSWAP32(n2);
+#endif
+  ((uint32_t *)out)[0] = n1;
+  ((uint32_t *)out)[1] = n2;
+}
+
+inline static __m256i f_simd_with_prefetch(__m256i x) {
+  __m256i idx87 =
+      _mm256_and_si256(_mm256_srli_epi32(x, 24), _mm256_set1_epi32(0xff));
+  __m256i idx65 =
+      _mm256_and_si256(_mm256_srli_epi32(x, 16), _mm256_set1_epi32(0xff));
+  __m256i idx43 =
+      _mm256_and_si256(_mm256_srli_epi32(x, 8), _mm256_set1_epi32(0xff));
+  __m256i idx21 = _mm256_and_si256(x, _mm256_set1_epi32(0xff));
+
+  uint32_t idx87_arr[8], idx65_arr[8], idx43_arr[8], idx21_arr[8];
+  _mm256_storeu_si256((__m256i *)idx87_arr, idx87);
+  _mm256_storeu_si256((__m256i *)idx65_arr, idx65);
+  _mm256_storeu_si256((__m256i *)idx43_arr, idx43);
+  _mm256_storeu_si256((__m256i *)idx21_arr, idx21);
+
+  for (int i = 0; i < 8; i++) {
+    _mm_prefetch((const char *)&pi87[idx87_arr[i]], _MM_HINT_T0);
+    _mm_prefetch((const char *)&pi65[idx65_arr[i]], _MM_HINT_T0);
+    _mm_prefetch((const char *)&pi43[idx43_arr[i]], _MM_HINT_T0);
+    _mm_prefetch((const char *)&pi21[idx21_arr[i]], _MM_HINT_T0);
+  }
+
+  uint32_t result_arr[8];
+  for (int i = 0; i < 8; i++) {
+    result_arr[i] = pi87[idx87_arr[i]] | pi65[idx65_arr[i]] |
+                    pi43[idx43_arr[i]] | pi21[idx21_arr[i]];
+  }
+
+  return _mm256_loadu_si256((__m256i *)result_arr);
+}
+
+#define F_SIMD(x)                                                              \
+  do {                                                                         \
+    /* Объявляем все локальные переменные */    \
+    __m256i __idx87, __idx65, __idx43, __idx21;                                \
+    uint32_t __idx87_arr[8] __attribute__((aligned(32)));                      \
+    uint32_t __idx65_arr[8] __attribute__((aligned(32)));                      \
+    uint32_t __idx43_arr[8] __attribute__((aligned(32)));                      \
+    uint32_t __idx21_arr[8] __attribute__((aligned(32)));                      \
+    uint32_t __result_arr[8] __attribute__((aligned(32)));                     \
+    const __m256i __mask = _mm256_set1_epi32(0xff);                            \
+                                                                               \
+    /* Вычисляем индексы */                                    \
+    __idx87 = _mm256_and_si256(_mm256_srli_epi32((x), 24), __mask);            \
+    __idx65 = _mm256_and_si256(_mm256_srli_epi32((x), 16), __mask);            \
+    __idx43 = _mm256_and_si256(_mm256_srli_epi32((x), 8), __mask);             \
+    __idx21 = _mm256_and_si256((x), __mask);                                   \
+                                                                               \
+    /* Конвертируем индексы в массивы */            \
+    _mm256_store_si256((__m256i *)__idx87_arr, __idx87);                       \
+    _mm256_store_si256((__m256i *)__idx65_arr, __idx65);                       \
+    _mm256_store_si256((__m256i *)__idx43_arr, __idx43);                       \
+    _mm256_store_si256((__m256i *)__idx21_arr, __idx21);                       \
+                                                                               \
+    /* Загружаем значения из таблиц */                \
+    for (int __i = 0; __i < 8; __i++) {                                        \
+      __result_arr[__i] = pi87[__idx87_arr[__i]] | pi65[__idx65_arr[__i]] |    \
+                          pi43[__idx43_arr[__i]] | pi21[__idx21_arr[__i]];     \
+    }                                                                          \
+                                                                               \
+    /* Возвращаем результат */                              \
+    (result) = _mm256_load_si256((__m256i *)__result_arr);                     \
+  } while (0)
+
+inline static __m256i f_simd(__m256i x) {
+  __m256i idx87 =
+      _mm256_and_si256(_mm256_srli_epi32(x, 24), _mm256_set1_epi32(0xff));
+  __m256i idx65 =
+      _mm256_and_si256(_mm256_srli_epi32(x, 16), _mm256_set1_epi32(0xff));
+  __m256i idx43 =
+      _mm256_and_si256(_mm256_srli_epi32(x, 8), _mm256_set1_epi32(0xff));
+  __m256i idx21 = _mm256_and_si256(x, _mm256_set1_epi32(0xff));
+
+  uint32_t idx87_arr[8], idx65_arr[8], idx43_arr[8], idx21_arr[8];
+  _mm256_storeu_si256((__m256i *)idx87_arr, idx87);
+  _mm256_storeu_si256((__m256i *)idx65_arr, idx65);
+  _mm256_storeu_si256((__m256i *)idx43_arr, idx43);
+  _mm256_storeu_si256((__m256i *)idx21_arr, idx21);
+
+  uint32_t result_arr[8];
+  for (int i = 0; i < 8; i++) {
+    result_arr[i] = pi87[idx87_arr[i]] | pi65[idx65_arr[i]] |
+                    pi43[idx43_arr[i]] | pi21[idx21_arr[i]];
+  }
+
+  return _mm256_loadu_si256((__m256i *)result_arr);
+}
+
+void magma_set_key(magma_subkeys *subkeys, const uint8_t *key) {
+  // Ключ 256 битов -> 32 бита по 8 ячеек.
+  subkeys->k[0] = GETU32_BE(key); // 32 бита в представлении Big Endian
+  subkeys->k[1] = GETU32_BE(key + 4); // Сдвиг на 32 бита + каст к Big Endian
+  subkeys->k[2] = GETU32_BE(key + 8);
+  subkeys->k[3] = GETU32_BE(key + 12);
+  subkeys->k[4] = GETU32_BE(key + 16);
+  subkeys->k[5] = GETU32_BE(key + 20);
+  subkeys->k[6] = GETU32_BE(key + 24);
+  subkeys->k[7] = GETU32_BE(key + 28);
+}
+
+inline static void load_8blocks_be(const uint8_t *in, __m256i *n2,
+                                   __m256i *n1) {
+  __m256i block0 = _mm256_loadu_si256((const __m256i *)(in + 0));
+  __m256i block1 = _mm256_loadu_si256((const __m256i *)(in + 32));
+
+  const __m256i shuffle_mask =
+      _mm256_set_epi8(12, 13, 14, 15, 8, 9, 10, 11, 4, 5, 6, 7, 0, 1, 2, 3, 12,
+                      13, 14, 15, 8, 9, 10, 11, 4, 5, 6, 7, 0, 1, 2, 3);
+
+  block0 = _mm256_shuffle_epi8(block0, shuffle_mask);
+  block1 = _mm256_shuffle_epi8(block1, shuffle_mask);
+
+  const __m256i mask_n2 =
+      _mm256_set_epi32(0xFFFFFFFF, 0x00000000, 0xFFFFFFFF, 0x00000000,
+                       0xFFFFFFFF, 0x00000000, 0xFFFFFFFF, 0x00000000);
+
+  const __m256i mask_n1 =
+      _mm256_set_epi32(0x00000000, 0xFFFFFFFF, 0x00000000, 0xFFFFFFFF,
+                       0x00000000, 0xFFFFFFFF, 0x00000000, 0xFFFFFFFF);
+
+  __m256i combined0 = _mm256_permute2x128_si256(
+      block0, block1, 0x20); // [block0_low, block1_low]
+  __m256i combined1 = _mm256_permute2x128_si256(
+      block0, block1, 0x31); // [block0_high, block1_high]
+
+  __m256i all_blocks = _mm256_set_m128i(_mm256_extracti128_si256(combined1, 0),
+                                        _mm256_extracti128_si256(combined0, 0));
+
+  *n2 = _mm256_and_si256(all_blocks, mask_n2);
+  *n1 = _mm256_and_si256(all_blocks, mask_n1);
+
+  *n1 = _mm256_srli_epi64(*n1, 32);
+}
+
+inline static void store_8blocks_be(uint8_t *out, __m256i n1, __m256i n2) {
+  __m256i n2_shifted = _mm256_slli_epi64(n2, 32);
+
+  __m256i combined = _mm256_or_si256(n2_shifted, n1);
+
+#ifdef __LITTLE_ENDIAN
+  const __m256i shuffle_mask =
+      _mm256_set_epi8(12, 13, 14, 15, 8, 9, 10, 11, 4, 5, 6, 7, 0, 1, 2, 3, 12,
+                      13, 14, 15, 8, 9, 10, 11, 4, 5, 6, 7, 0, 1, 2, 3);
+  combined = _mm256_shuffle_epi8(combined, shuffle_mask);
+#endif
+
+  _mm256_storeu_si256((__m256i *)(out + 0),
+                      _mm256_permute2x128_si256(combined, combined, 0x20));
+  _mm256_storeu_si256((__m256i *)(out + 32),
+                      _mm256_permute2x128_si256(combined, combined, 0x31));
+}
+
+inline static void magma_encrypt_8blocks(magma_subkeys *subkeys, uint8_t *out,
+                                         const uint8_t *in) {
+  __m256i n2, n1;
+
+  // Загружаем 8 блоков
+  load_8blocks_be(in, &n2, &n1);
+
+  // Подготавливаем константы ключей
+  __m256i k0 = _mm256_set1_epi32(subkeys->k[0]);
+  __m256i k1 = _mm256_set1_epi32(subkeys->k[1]);
+  __m256i k2 = _mm256_set1_epi32(subkeys->k[2]);
+  __m256i k3 = _mm256_set1_epi32(subkeys->k[3]);
+  __m256i k4 = _mm256_set1_epi32(subkeys->k[4]);
+  __m256i k5 = _mm256_set1_epi32(subkeys->k[5]);
+  __m256i k6 = _mm256_set1_epi32(subkeys->k[6]);
+  __m256i k7 = _mm256_set1_epi32(subkeys->k[7]);
+
+  __m256i result;
+
+  // // Раунды 1-8
+  F_SIMD(_mm256_add_epi32(n1, k0));
+  n2 = _mm256_xor_si256(n2, result);
+  F_SIMD(_mm256_add_epi32(n2, k1));
+  n1 = _mm256_xor_si256(n1, result);
+  F_SIMD(_mm256_add_epi32(n2, k2));
+  n2 = _mm256_xor_si256(n1, result);
+  F_SIMD(_mm256_add_epi32(n1, k3));
+  n1 = _mm256_xor_si256(n1, result);
+  F_SIMD(_mm256_add_epi32(n1, k4));
+  n2 = _mm256_xor_si256(n2, result);
+  F_SIMD(_mm256_add_epi32(n1, k5));
+  n1 = _mm256_xor_si256(n1, result);
+  F_SIMD(_mm256_add_epi32(n1, k6));
+  n2 = _mm256_xor_si256(n2, result);
+  F_SIMD(_mm256_add_epi32(n1, k7));
+  n1 = _mm256_xor_si256(n1, result);
+
+  F_SIMD(_mm256_add_epi32(n1, k0));
+  n2 = _mm256_xor_si256(n2, result);
+  F_SIMD(_mm256_add_epi32(n2, k1));
+  n1 = _mm256_xor_si256(n1, result);
+  F_SIMD(_mm256_add_epi32(n2, k2));
+  n2 = _mm256_xor_si256(n1, result);
+  F_SIMD(_mm256_add_epi32(n1, k3));
+  n1 = _mm256_xor_si256(n1, result);
+  F_SIMD(_mm256_add_epi32(n1, k4));
+  n2 = _mm256_xor_si256(n2, result);
+  F_SIMD(_mm256_add_epi32(n1, k5));
+  n1 = _mm256_xor_si256(n1, result);
+  F_SIMD(_mm256_add_epi32(n1, k6));
+  n2 = _mm256_xor_si256(n2, result);
+  F_SIMD(_mm256_add_epi32(n1, k7));
+  n1 = _mm256_xor_si256(n1, result);
+
+  F_SIMD(_mm256_add_epi32(n1, k0));
+  n2 = _mm256_xor_si256(n2, result);
+  F_SIMD(_mm256_add_epi32(n2, k1));
+  n1 = _mm256_xor_si256(n1, result);
+  F_SIMD(_mm256_add_epi32(n2, k2));
+  n2 = _mm256_xor_si256(n1, result);
+  F_SIMD(_mm256_add_epi32(n1, k3));
+  n1 = _mm256_xor_si256(n1, result);
+  F_SIMD(_mm256_add_epi32(n1, k4));
+  n2 = _mm256_xor_si256(n2, result);
+  F_SIMD(_mm256_add_epi32(n1, k5));
+  n1 = _mm256_xor_si256(n1, result);
+  F_SIMD(_mm256_add_epi32(n1, k6));
+  n2 = _mm256_xor_si256(n2, result);
+  F_SIMD(_mm256_add_epi32(n1, k7));
+  n1 = _mm256_xor_si256(n1, result);
+
+  F_SIMD(_mm256_add_epi32(n1, k0));
+  n2 = _mm256_xor_si256(n2, result);
+  F_SIMD(_mm256_add_epi32(n2, k1));
+  n1 = _mm256_xor_si256(n1, result);
+  F_SIMD(_mm256_add_epi32(n2, k2));
+  n2 = _mm256_xor_si256(n1, result);
+  F_SIMD(_mm256_add_epi32(n1, k3));
+  n1 = _mm256_xor_si256(n1, result);
+  F_SIMD(_mm256_add_epi32(n1, k4));
+  n2 = _mm256_xor_si256(n2, result);
+  F_SIMD(_mm256_add_epi32(n1, k5));
+  n1 = _mm256_xor_si256(n1, result);
+  F_SIMD(_mm256_add_epi32(n1, k6));
+  n2 = _mm256_xor_si256(n2, result);
+  F_SIMD(_mm256_add_epi32(n1, k7));
+  n1 = _mm256_xor_si256(n1, result);
+
+  // n2 = _mm256_xor_si256(n2, f_simd(_mm256_add_epi32(n1, k0)));
+  // n1 = _mm256_xor_si256(n1, f_simd(_mm256_add_epi32(n2, k1)));
+  // n2 = _mm256_xor_si256(n2, f_simd(_mm256_add_epi32(n1, k2)));
+  // n1 = _mm256_xor_si256(n1, f_simd(_mm256_add_epi32(n2, k3)));
+  // n2 = _mm256_xor_si256(n2, f_simd(_mm256_add_epi32(n1, k4)));
+  // n1 = _mm256_xor_si256(n1, f_simd(_mm256_add_epi32(n2, k5)));
+  // n2 = _mm256_xor_si256(n2, f_simd(_mm256_add_epi32(n1, k6)));
+  // n1 = _mm256_xor_si256(n1, f_simd(_mm256_add_epi32(n2, k7)));
+
+  // n2 = _mm256_xor_si256(n2, f_simd(_mm256_add_epi32(n1, k0)));
+  // n1 = _mm256_xor_si256(n1, f_simd(_mm256_add_epi32(n2, k1)));
+  // n2 = _mm256_xor_si256(n2, f_simd(_mm256_add_epi32(n1, k2)));
+  // n1 = _mm256_xor_si256(n1, f_simd(_mm256_add_epi32(n2, k3)));
+  // n2 = _mm256_xor_si256(n2, f_simd(_mm256_add_epi32(n1, k4)));
+  // n1 = _mm256_xor_si256(n1, f_simd(_mm256_add_epi32(n2, k5)));
+  // n2 = _mm256_xor_si256(n2, f_simd(_mm256_add_epi32(n1, k6)));
+  // n1 = _mm256_xor_si256(n1, f_simd(_mm256_add_epi32(n2, k7)));
+
+  // n2 = _mm256_xor_si256(n2, f_simd(_mm256_add_epi32(n1, k0)));
+  // n1 = _mm256_xor_si256(n1, f_simd(_mm256_add_epi32(n2, k1)));
+  // n2 = _mm256_xor_si256(n2, f_simd(_mm256_add_epi32(n1, k2)));
+  // n1 = _mm256_xor_si256(n1, f_simd(_mm256_add_epi32(n2, k3)));
+  // n2 = _mm256_xor_si256(n2, f_simd(_mm256_add_epi32(n1, k4)));
+  // n1 = _mm256_xor_si256(n1, f_simd(_mm256_add_epi32(n2, k5)));
+  // n2 = _mm256_xor_si256(n2, f_simd(_mm256_add_epi32(n1, k6)));
+  // n1 = _mm256_xor_si256(n1, f_simd(_mm256_add_epi32(n2, k7)));
+
+  // n2 = _mm256_xor_si256(n2, f_simd(_mm256_add_epi32(n1, k0)));
+  // n1 = _mm256_xor_si256(n1, f_simd(_mm256_add_epi32(n2, k1)));
+  // n2 = _mm256_xor_si256(n2, f_simd(_mm256_add_epi32(n1, k2)));
+  // n1 = _mm256_xor_si256(n1, f_simd(_mm256_add_epi32(n2, k3)));
+  // n2 = _mm256_xor_si256(n2, f_simd(_mm256_add_epi32(n1, k4)));
+  // n1 = _mm256_xor_si256(n1, f_simd(_mm256_add_epi32(n2, k5)));
+  // n2 = _mm256_xor_si256(n2, f_simd(_mm256_add_epi32(n1, k6)));
+  // n1 = _mm256_xor_si256(n1, f_simd(_mm256_add_epi32(n2, k7)));
+
+  // Сохраняем 8 блоков
+  store_8blocks_be(out, n1, n2);
+}
+
+/* ========== Утилиты для бенчмарка ========== */
+
+// Высокоточный таймер
+static uint64_t get_nanoseconds() {
+  struct timespec ts;
+  clock_gettime(CLOCK_MONOTONIC, &ts);
+  return (uint64_t)ts.tv_sec * 1000000000ULL + ts.tv_nsec;
+}
+
+// Форматированный вывод скорости
+static void print_speed(double bytes_per_second) {
+  const char *units[] = {"B/s", "KB/s", "MB/s", "GB/s"};
+  int unit_index = 0;
+  double speed = bytes_per_second;
+
+  while (speed >= 1024.0 && unit_index < 3) {
+    speed /= 1024.0;
+    unit_index++;
+  }
+
+  printf("%.2f %s", speed, units[unit_index]);
+}
+
+// Заполнение случайными данными
+static void fill_random(uint8_t *data, size_t size) {
+  for (size_t i = 0; i < size; i++) {
+    data[i] = rand() & 0xFF;
+  }
+}
+
+// Проверка корректности (сравнение скалярной и SIMD версий)
+static int verify_correctness(magma_subkeys *ctx, size_t data_size) {
+  size_t num_blocks = data_size / 8;
+  size_t simd_blocks = (num_blocks / 8) * 8; // кратно 8
+
+  uint8_t *plaintext = malloc(data_size);
+  uint8_t *scalar_out = malloc(data_size);
+  uint8_t *simd_out = malloc(data_size);
+
+  if (!plaintext || !scalar_out || !simd_out) {
+    printf("Ошибка выделения памяти для проверки\n");
+    return -1;
+  }
+
+  fill_random(plaintext, data_size);
+
+  // Скалярная версия
+  for (size_t i = 0; i < num_blocks; i++) {
+    magma_encrypt_scalar(ctx, scalar_out + i * 8, plaintext + i * 8);
+  }
+
+  // SIMD версия
+  for (size_t i = 0; i < simd_blocks; i += 8) {
+    magma_encrypt_8blocks(ctx, simd_out + i * 8, plaintext + i * 8);
+  }
+
+  // Скалярная для оставшихся блоков (не кратных 8)
+  for (size_t i = simd_blocks; i < num_blocks; i++) {
+    magma_encrypt_scalar(ctx, simd_out + i * 8, plaintext + i * 8);
+  }
+
+  // Сравнение
+  int errors = 0;
+  for (size_t i = 0; i < data_size; i++) {
+    if (scalar_out[i] != simd_out[i]) {
+      if (errors < 10) { // Показываем только первые 10 ошибок
+        printf("Ошибка в байте %zu: скаляр=%02x, SIMD=%02x\n", i, scalar_out[i],
+               simd_out[i]);
+      }
+      errors++;
+    }
+  }
+
+  free(plaintext);
+  free(scalar_out);
+  free(simd_out);
+
+  return errors;
+}
+
+/* ========== Функции бенчмарка ========== */
+
+static void benchmark_scalar(magma_subkeys *ctx, size_t data_size,
+                             int iterations) {
+  size_t num_blocks = data_size / 8;
+
+  uint8_t *plaintext = malloc(data_size);
+  uint8_t *ciphertext = malloc(data_size);
+
+  fill_random(plaintext, data_size);
+
+  // Прогрев кэша
+  // for (size_t i = 0; i < num_blocks; i++) {
+  //   magma_encrypt_scalar(ctx, ciphertext + i * 8, plaintext + i * 8);
+  // }
+
+  // Основное измерение
+  uint64_t start = get_nanoseconds();
+
+  for (int iter = 0; iter < iterations; iter++) {
+    for (size_t i = 0; i < num_blocks; i++) {
+      magma_encrypt_scalar(ctx, ciphertext + i * 8, plaintext + i * 8);
+    }
+  }
+
+  uint64_t end = get_nanoseconds();
+
+  double total_time = (end - start) / 1e9;
+  double total_data = (double)data_size * iterations;
+  double speed = total_data / total_time;
+
+  printf("  Скалярная версия:\n");
+  printf("    Время: %.3f сек\n", total_time);
+  printf("    Данные: %.2f MB\n", total_data / (1024 * 1024));
+  printf("    Скорость: ");
+  print_speed(speed);
+  printf("\n");
+  printf("    %.1f нс/блок\n", (total_time / (num_blocks * iterations)) * 1e9);
+
+  free(plaintext);
+  free(ciphertext);
+}
+
+// static void benchmark_simd(magma_subkeys *ctx, size_t data_size,
+//                            int iterations) {
+//   size_t num_blocks = data_size / 8;
+//   size_t simd_blocks = (num_blocks / 8) * 8; // кратно 8
+
+//   uint8_t *plaintext = malloc(data_size);
+//   uint8_t *ciphertext = malloc(data_size);
+
+//   fill_random(plaintext, data_size);
+
+//   // Прогрев
+//   for (size_t i = 0; i < simd_blocks; i += 8) {
+//     magma_encrypt_8blocks(ctx, ciphertext + i * 8, plaintext + i * 8);
+//   }
+
+//   // Основное измерение
+//   uint64_t start = get_nanoseconds();
+
+//   for (int iter = 0; iter < iterations; iter++) {
+//     // SIMD для блоков, кратных 8
+//     for (size_t i = 0; i < simd_blocks; i += 8) {
+//       magma_encrypt_8blocks(ctx, ciphertext + i * 8, plaintext + i * 8);
+//     }
+
+//     // Скалярная для оставшихся
+//     for (size_t i = simd_blocks; i < num_blocks; i++) {
+//       magma_encrypt_scalar(ctx, ciphertext + i * 8, plaintext + i * 8);
+//     }
+//   }
+
+//   uint64_t end = get_nanoseconds();
+
+//   double total_time = (end - start) / 1e9;
+//   double total_data = (double)data_size * iterations;
+//   double speed = total_data / total_time;
+
+//   printf("  SIMD версия (8 блоков):\n");
+//   printf("    Время: %.3f сек\n", total_time);
+//   printf("    Данные: %.2f MB\n", total_data / (1024 * 1024));
+//   printf("    Скорость: ");
+//   print_speed(speed);
+//   printf("\n");
+//   printf("    %.1f нс/блок\n", (total_time / (num_blocks * iterations)) *
+//   1e9);
+
+//   free(plaintext);
+//   free(ciphertext);
+// }
+
+static void benchmark_simd(magma_subkeys *ctx, size_t data_size,
+                           int iterations) {
+  size_t num_blocks = data_size / 8;
+  size_t simd_blocks = (num_blocks / 8) * 8; // кратно 8
+
+  // Аллоцируем отдельные буферы для ввода и вывода
+  uint8_t *plaintext = malloc(data_size);
+  uint8_t *ciphertext = malloc(data_size);
+
+  if (!plaintext || !ciphertext) {
+    printf("Ошибка выделения памяти\n");
+    free(plaintext);
+    free(ciphertext);
+    return;
+  }
+
+  fill_random(plaintext, data_size);
+
+  // Полный прогрев (все блоки)
+  // for (int warmup = 0; warmup < 3; warmup++) {
+  //   for (size_t i = 0; i < simd_blocks; i += 8) {
+  //     magma_encrypt_8blocks(ctx, ciphertext + i * 8, plaintext + i * 8);
+  //   }
+  //   // Оставшиеся блоки (не кратные 8) - тоже прогрев
+  //   for (size_t i = simd_blocks; i < num_blocks; i++) {
+  //     magma_encrypt_scalar(ctx, ciphertext + i * 8, plaintext + i * 8);
+  //   }
+  // }
+
+  // Основное измерение
+  uint64_t start = get_nanoseconds();
+
+  for (int iter = 0; iter < iterations; iter++) {
+    // SIMD для блоков, кратных 8
+    for (size_t i = 0; i < simd_blocks; i += 8) {
+      magma_encrypt_8blocks(ctx, ciphertext + i * 8, plaintext + i * 8);
+    }
+
+    // Скалярная для оставшихся блоков (не кратных 8)
+    for (size_t i = simd_blocks; i < num_blocks; i++) {
+      magma_encrypt_scalar(ctx, ciphertext + i * 8, plaintext + i * 8);
+    }
+  }
+
+  uint64_t end = get_nanoseconds();
+
+  double total_time = (end - start) / 1e9;
+  double total_data = (double)data_size * iterations;
+  double speed = total_data / total_time;
+
+  printf("  SIMD версия (8 блоков):\n");
+  printf("    Время: %.3f сек\n", total_time);
+  printf("    Данные: %.2f MB\n", total_data / (1024 * 1024));
+  printf("    Скорость: ");
+  print_speed(speed);
+  printf("\n");
+
+  // Рассчитываем среднее время на блок
+  double avg_time_per_block = total_time / (num_blocks * iterations);
+  printf("    %.1f нс/блок\n", avg_time_per_block * 1e9);
+
+  // Рассчитываем эффективность SIMD
+  double simd_ratio = (double)simd_blocks / num_blocks;
+  printf("    SIMD покрытие: %.1f%% блоков\n", simd_ratio * 100);
+
+  free(plaintext);
+  free(ciphertext);
+}
+
+/* ========== Основная функция ========== */
+
+int main() {
+  printf("=== Бенчмарк Magma: скалярная vs SIMD версии ===\n\n");
+
+  // Тестовый ключ из ГОСТ
+  uint8_t key[32] = {0xff, 0xee, 0xdd, 0xcc, 0xbb, 0xaa, 0x99, 0x88,
+                     0x77, 0x66, 0x55, 0x44, 0x33, 0x22, 0x11, 0x00,
+                     0xf0, 0xf1, 0xf2, 0xf3, 0xf4, 0xf5, 0xf6, 0xf7,
+                     0xf8, 0xf9, 0xfa, 0xfb, 0xfc, 0xfd, 0xfe, 0xff};
+
+  magma_subkeys ctx;
+  magma_set_key(&ctx, key);
+
+  srand(time(NULL));
+
+  // Проверка корректности
+  // printf("1. Проверка корректности:\n");
+  // int errors = verify_correctness(&ctx, 1024 * 1024); // 1MB
+  // if (errors == 0) {
+  //   printf("  ✅ Все результаты совпадают\n");
+  // } else {
+  //   printf("  ❌ Найдено %d ошибок\n", errors);
+  //   return 1;
+  // }
+
+  printf("\n2. Производительность на разных объемах данных:\n");
+
+  size_t test_sizes[] = {64 * 1024, 256 * 1024, 1024 * 1024,
+                         16 * 1024 * 1024}; // 64KB - 16MB
+  int iterations[] = {1000, 500, 100, 10}; // Итерации для каждого размера
+
+  for (int test_idx = 0; test_idx < 4; test_idx++) {
+    size_t data_size = test_sizes[test_idx];
+    int iter = iterations[test_idx];
+
+    printf("\n  Тест %d: %zu байт (%zu блоков), %d итераций\n", test_idx + 1,
+           data_size, data_size / 8, iter);
+    printf("  %s\n", "------------------------------------------------");
+
+    // Тестируем скалярную версию
+    benchmark_scalar(&ctx, data_size, iter);
+
+    // Тестируем SIMD версию
+    benchmark_simd(&ctx, data_size, iter);
+  }
+
+  printf("\n3. Анализ ускорения:\n");
+
+  // Детальный тест для точного измерения ускорения
+  size_t detailed_size = 8 * 1024 * 1024; // 8MB
+  int detailed_iter = 10;
+
+  uint8_t *plaintext = malloc(detailed_size);
+  uint8_t *ciphertext = malloc(detailed_size);
+  fill_random(plaintext, detailed_size);
+
+  size_t num_blocks = detailed_size / 8;
+  size_t simd_blocks = (num_blocks / 8) * 8;
+
+  // Скалярная версия
+  uint64_t start_scalar = get_nanoseconds();
+  for (int iter = 0; iter < detailed_iter; iter++) {
+    for (size_t i = 0; i < num_blocks; i++) {
+      magma_encrypt_scalar(&ctx, ciphertext + i * 8, plaintext + i * 8);
+    }
+  }
+  uint64_t end_scalar = get_nanoseconds();
+  double time_scalar = (end_scalar - start_scalar) / 1e9;
+
+  // SIMD версия
+  uint64_t start_simd = get_nanoseconds();
+  for (int iter = 0; iter < detailed_iter; iter++) {
+    for (size_t i = 0; i < simd_blocks; i += 8) {
+      magma_encrypt_8blocks(&ctx, ciphertext + i * 8, plaintext + i * 8);
+    }
+    for (size_t i = simd_blocks; i < num_blocks; i++) {
+      magma_encrypt_scalar(&ctx, ciphertext + i * 8, plaintext + i * 8);
+    }
+  }
+  uint64_t end_simd = get_nanoseconds();
+  double time_simd = (end_simd - start_simd) / 1e9;
+
+  double speedup = time_scalar / time_simd;
+
+  printf("  Размер данных: %.1f MB\n", detailed_size / (1024.0 * 1024));
+  printf("  Время скалярной: %.3f сек\n", time_scalar);
+  printf("  Время SIMD: %.3f сек\n", time_simd);
+  printf("  Ускорение: %.2fx\n", speedup);
+  printf("  Эффективность: %.1f%% (теоретически 800%% для 8 блоков)\n",
+         (speedup / 8.0) * 100);
+
+  free(plaintext);
+  free(ciphertext);
+
+  printf("\n4. Информация о системе:\n");
+
+#ifdef __AVX2__
+  printf("  Поддержка AVX2: Да\n");
+#else
+  printf("  Поддержка AVX2: Нет\n");
+#endif
+
+#ifdef __LITTLE_ENDIAN
+  printf("  Endianness: Little-endian\n");
+#else
+  printf("  Endianness: Big-endian\n");
+#endif
+
+  printf("\n=== Бенчмарк завершен ===\n");
+
+  return 0;
+}
