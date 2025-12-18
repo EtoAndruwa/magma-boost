@@ -479,17 +479,17 @@ inline static __m256i f_simd(__m256i x) {
       idx65_arr[8] __attribute__((aligned(32))),
       idx43_arr[8] __attribute__((aligned(32))),
       idx21_arr[8] __attribute__((aligned(32)));
-  _mm256_storeu_si256((__m256i *)idx87_arr, idx87);
-  _mm256_storeu_si256((__m256i *)idx65_arr, idx65);
-  _mm256_storeu_si256((__m256i *)idx43_arr, idx43);
-  _mm256_storeu_si256((__m256i *)idx21_arr, idx21);
+  _mm256_store_si256((__m256i *)idx87_arr, idx87);
+  _mm256_store_si256((__m256i *)idx65_arr, idx65);
+  _mm256_store_si256((__m256i *)idx43_arr, idx43);
+  _mm256_store_si256((__m256i *)idx21_arr, idx21);
 
   uint32_t result_arr[8];
   for (int i = 0; i < 8; i++)
     result_arr[i] = pi87_256[idx87_arr[i]] | pi65_256[idx65_arr[i]] |
                     pi43_256[idx43_arr[i]] | pi21_256[idx21_arr[i]];
 
-  return _mm256_loadu_si256((__m256i *)result_arr);
+  return _mm256_load_si256((__m256i *)result_arr);
 }
 
 void magma_set_key(magma_subkeys *subkeys, const uint8_t *key) {
@@ -549,41 +549,588 @@ static inline void magma_encrypt_8blocks(magma_subkeys_256 *subkeys,
   __m256i n2 = _mm256_permute2x128_si256(even0, even1, 0x20);
   __m256i n1 = _mm256_permute2x128_si256(odd0, odd1, 0x20);
 
-  n2 = _mm256_xor_si256(n2, f_simd(_mm256_add_epi32(n1, subkeys->k[0])));
-  n1 = _mm256_xor_si256(n1, f_simd(_mm256_add_epi32(n2, subkeys->k[1])));
-  n2 = _mm256_xor_si256(n2, f_simd(_mm256_add_epi32(n1, subkeys->k[2])));
-  n1 = _mm256_xor_si256(n1, f_simd(_mm256_add_epi32(n2, subkeys->k[3])));
-  n2 = _mm256_xor_si256(n2, f_simd(_mm256_add_epi32(n1, subkeys->k[4])));
-  n1 = _mm256_xor_si256(n1, f_simd(_mm256_add_epi32(n2, subkeys->k[5])));
-  n2 = _mm256_xor_si256(n2, f_simd(_mm256_add_epi32(n1, subkeys->k[6])));
-  n1 = _mm256_xor_si256(n1, f_simd(_mm256_add_epi32(n2, subkeys->k[7])));
+  __m256i idx87, idx65, idx43, idx21, result, x;
+  uint32_t idx87_arr[8] __attribute__((aligned(32))),
+      idx65_arr[8] __attribute__((aligned(32))),
+      idx43_arr[8] __attribute__((aligned(32))),
+      idx21_arr[8] __attribute__((aligned(32)));
+  uint32_t result_arr[8]__attribute__((aligned(32)));
 
-  n2 = _mm256_xor_si256(n2, f_simd(_mm256_add_epi32(n1, subkeys->k[0])));
-  n1 = _mm256_xor_si256(n1, f_simd(_mm256_add_epi32(n2, subkeys->k[1])));
-  n2 = _mm256_xor_si256(n2, f_simd(_mm256_add_epi32(n1, subkeys->k[2])));
-  n1 = _mm256_xor_si256(n1, f_simd(_mm256_add_epi32(n2, subkeys->k[3])));
-  n2 = _mm256_xor_si256(n2, f_simd(_mm256_add_epi32(n1, subkeys->k[4])));
-  n1 = _mm256_xor_si256(n1, f_simd(_mm256_add_epi32(n2, subkeys->k[5])));
-  n2 = _mm256_xor_si256(n2, f_simd(_mm256_add_epi32(n1, subkeys->k[6])));
-  n1 = _mm256_xor_si256(n1, f_simd(_mm256_add_epi32(n2, subkeys->k[7])));
+  x = _mm256_add_epi32(n1, subkeys->k[0]);
+  idx87 = _mm256_and_si256(_mm256_srli_epi32(x, 24), _mm256_set1_epi32(0xff));
+  idx65 = _mm256_and_si256(_mm256_srli_epi32(x, 16), _mm256_set1_epi32(0xff));
+  idx43 = _mm256_and_si256(_mm256_srli_epi32(x, 8), _mm256_set1_epi32(0xff));
+  idx21 = _mm256_and_si256(x, _mm256_set1_epi32(0xff));
 
-  n2 = _mm256_xor_si256(n2, f_simd(_mm256_add_epi32(n1, subkeys->k[0])));
-  n1 = _mm256_xor_si256(n1, f_simd(_mm256_add_epi32(n2, subkeys->k[1])));
-  n2 = _mm256_xor_si256(n2, f_simd(_mm256_add_epi32(n1, subkeys->k[2])));
-  n1 = _mm256_xor_si256(n1, f_simd(_mm256_add_epi32(n2, subkeys->k[3])));
-  n2 = _mm256_xor_si256(n2, f_simd(_mm256_add_epi32(n1, subkeys->k[4])));
-  n1 = _mm256_xor_si256(n1, f_simd(_mm256_add_epi32(n2, subkeys->k[5])));
-  n2 = _mm256_xor_si256(n2, f_simd(_mm256_add_epi32(n1, subkeys->k[6])));
-  n1 = _mm256_xor_si256(n1, f_simd(_mm256_add_epi32(n2, subkeys->k[7])));
+  _mm256_store_si256((__m256i *)idx87_arr, idx87);
+  _mm256_store_si256((__m256i *)idx65_arr, idx65);
+  _mm256_store_si256((__m256i *)idx43_arr, idx43);
+  _mm256_store_si256((__m256i *)idx21_arr, idx21);
 
-  n2 = _mm256_xor_si256(n2, f_simd(_mm256_add_epi32(n1, subkeys->k[7])));
-  n1 = _mm256_xor_si256(n1, f_simd(_mm256_add_epi32(n2, subkeys->k[6])));
-  n2 = _mm256_xor_si256(n2, f_simd(_mm256_add_epi32(n1, subkeys->k[5])));
-  n1 = _mm256_xor_si256(n1, f_simd(_mm256_add_epi32(n2, subkeys->k[4])));
-  n2 = _mm256_xor_si256(n2, f_simd(_mm256_add_epi32(n1, subkeys->k[3])));
-  n1 = _mm256_xor_si256(n1, f_simd(_mm256_add_epi32(n2, subkeys->k[2])));
-  n2 = _mm256_xor_si256(n2, f_simd(_mm256_add_epi32(n1, subkeys->k[1])));
-  n1 = _mm256_xor_si256(n1, f_simd(_mm256_add_epi32(n2, subkeys->k[0])));
+  for (int i = 0; i < 8; i++)
+    result_arr[i] = pi87_256[idx87_arr[i]] | pi65_256[idx65_arr[i]] |
+                    pi43_256[idx43_arr[i]] | pi21_256[idx21_arr[i]];
+
+  result = _mm256_load_si256((__m256i *)result_arr);
+  n2 = _mm256_xor_si256(n2, result);
+
+  x = _mm256_add_epi32(n2, subkeys->k[1]);
+    idx87 = _mm256_and_si256(_mm256_srli_epi32(x, 24), _mm256_set1_epi32(0xff));
+  idx65 = _mm256_and_si256(_mm256_srli_epi32(x, 16), _mm256_set1_epi32(0xff));
+  idx43 = _mm256_and_si256(_mm256_srli_epi32(x, 8), _mm256_set1_epi32(0xff));
+  idx21 = _mm256_and_si256(x, _mm256_set1_epi32(0xff));
+
+  _mm256_store_si256((__m256i *)idx87_arr, idx87);
+  _mm256_store_si256((__m256i *)idx65_arr, idx65);
+  _mm256_store_si256((__m256i *)idx43_arr, idx43);
+  _mm256_store_si256((__m256i *)idx21_arr, idx21);
+
+  for (int i = 0; i < 8; i++)
+    result_arr[i] = pi87_256[idx87_arr[i]] | pi65_256[idx65_arr[i]] |
+                    pi43_256[idx43_arr[i]] | pi21_256[idx21_arr[i]];
+
+  result = _mm256_load_si256((__m256i *)result_arr);
+  n1 = _mm256_xor_si256(n1, result);
+
+  x = _mm256_add_epi32(n1, subkeys->k[2]);
+    idx87 = _mm256_and_si256(_mm256_srli_epi32(x, 24), _mm256_set1_epi32(0xff));
+  idx65 = _mm256_and_si256(_mm256_srli_epi32(x, 16), _mm256_set1_epi32(0xff));
+  idx43 = _mm256_and_si256(_mm256_srli_epi32(x, 8), _mm256_set1_epi32(0xff));
+  idx21 = _mm256_and_si256(x, _mm256_set1_epi32(0xff));
+
+  _mm256_store_si256((__m256i *)idx87_arr, idx87);
+  _mm256_store_si256((__m256i *)idx65_arr, idx65);
+  _mm256_store_si256((__m256i *)idx43_arr, idx43);
+  _mm256_store_si256((__m256i *)idx21_arr, idx21);
+
+  for (int i = 0; i < 8; i++)
+    result_arr[i] = pi87_256[idx87_arr[i]] | pi65_256[idx65_arr[i]] |
+                    pi43_256[idx43_arr[i]] | pi21_256[idx21_arr[i]];
+
+  result = _mm256_load_si256((__m256i *)result_arr);
+  n2 = _mm256_xor_si256(n2, result);
+
+  x = _mm256_add_epi32(n2, subkeys->k[3]);
+  idx87 = _mm256_and_si256(_mm256_srli_epi32(x, 24), _mm256_set1_epi32(0xff));
+  idx65 = _mm256_and_si256(_mm256_srli_epi32(x, 16), _mm256_set1_epi32(0xff));
+  idx43 = _mm256_and_si256(_mm256_srli_epi32(x, 8), _mm256_set1_epi32(0xff));
+  idx21 = _mm256_and_si256(x, _mm256_set1_epi32(0xff));
+
+  _mm256_store_si256((__m256i *)idx87_arr, idx87);
+  _mm256_store_si256((__m256i *)idx65_arr, idx65);
+  _mm256_store_si256((__m256i *)idx43_arr, idx43);
+  _mm256_store_si256((__m256i *)idx21_arr, idx21);
+
+  for (int i = 0; i < 8; i++)
+    result_arr[i] = pi87_256[idx87_arr[i]] | pi65_256[idx65_arr[i]] |
+                    pi43_256[idx43_arr[i]] | pi21_256[idx21_arr[i]];
+
+  result = _mm256_load_si256((__m256i *)result_arr);
+  n1 = _mm256_xor_si256(n1, result);
+
+  x = _mm256_add_epi32(n1, subkeys->k[4]);
+    idx87 = _mm256_and_si256(_mm256_srli_epi32(x, 24), _mm256_set1_epi32(0xff));
+  idx65 = _mm256_and_si256(_mm256_srli_epi32(x, 16), _mm256_set1_epi32(0xff));
+  idx43 = _mm256_and_si256(_mm256_srli_epi32(x, 8), _mm256_set1_epi32(0xff));
+  idx21 = _mm256_and_si256(x, _mm256_set1_epi32(0xff));
+
+  _mm256_store_si256((__m256i *)idx87_arr, idx87);
+  _mm256_store_si256((__m256i *)idx65_arr, idx65);
+  _mm256_store_si256((__m256i *)idx43_arr, idx43);
+  _mm256_store_si256((__m256i *)idx21_arr, idx21);
+
+  for (int i = 0; i < 8; i++)
+    result_arr[i] = pi87_256[idx87_arr[i]] | pi65_256[idx65_arr[i]] |
+                    pi43_256[idx43_arr[i]] | pi21_256[idx21_arr[i]];
+
+  result = _mm256_load_si256((__m256i *)result_arr);
+  n2 = _mm256_xor_si256(n2, result);
+  
+  x = _mm256_add_epi32(n2, subkeys->k[5]);
+    idx87 = _mm256_and_si256(_mm256_srli_epi32(x, 24), _mm256_set1_epi32(0xff));
+  idx65 = _mm256_and_si256(_mm256_srli_epi32(x, 16), _mm256_set1_epi32(0xff));
+  idx43 = _mm256_and_si256(_mm256_srli_epi32(x, 8), _mm256_set1_epi32(0xff));
+  idx21 = _mm256_and_si256(x, _mm256_set1_epi32(0xff));
+
+  _mm256_store_si256((__m256i *)idx87_arr, idx87);
+  _mm256_store_si256((__m256i *)idx65_arr, idx65);
+  _mm256_store_si256((__m256i *)idx43_arr, idx43);
+  _mm256_store_si256((__m256i *)idx21_arr, idx21);
+
+  for (int i = 0; i < 8; i++)
+    result_arr[i] = pi87_256[idx87_arr[i]] | pi65_256[idx65_arr[i]] |
+                    pi43_256[idx43_arr[i]] | pi21_256[idx21_arr[i]];
+
+  result = _mm256_load_si256((__m256i *)result_arr);
+  n1 = _mm256_xor_si256(n1, result);
+  
+  x = _mm256_add_epi32(n1, subkeys->k[6]);
+    idx87 = _mm256_and_si256(_mm256_srli_epi32(x, 24), _mm256_set1_epi32(0xff));
+  idx65 = _mm256_and_si256(_mm256_srli_epi32(x, 16), _mm256_set1_epi32(0xff));
+  idx43 = _mm256_and_si256(_mm256_srli_epi32(x, 8), _mm256_set1_epi32(0xff));
+  idx21 = _mm256_and_si256(x, _mm256_set1_epi32(0xff));
+
+  _mm256_store_si256((__m256i *)idx87_arr, idx87);
+  _mm256_store_si256((__m256i *)idx65_arr, idx65);
+  _mm256_store_si256((__m256i *)idx43_arr, idx43);
+  _mm256_store_si256((__m256i *)idx21_arr, idx21);
+
+  for (int i = 0; i < 8; i++)
+    result_arr[i] = pi87_256[idx87_arr[i]] | pi65_256[idx65_arr[i]] |
+                    pi43_256[idx43_arr[i]] | pi21_256[idx21_arr[i]];
+
+  result = _mm256_load_si256((__m256i *)result_arr);
+  n2 = _mm256_xor_si256(n2, result);
+  
+  x = _mm256_add_epi32(n2, subkeys->k[7]);
+    idx87 = _mm256_and_si256(_mm256_srli_epi32(x, 24), _mm256_set1_epi32(0xff));
+  idx65 = _mm256_and_si256(_mm256_srli_epi32(x, 16), _mm256_set1_epi32(0xff));
+  idx43 = _mm256_and_si256(_mm256_srli_epi32(x, 8), _mm256_set1_epi32(0xff));
+  idx21 = _mm256_and_si256(x, _mm256_set1_epi32(0xff));
+
+  _mm256_store_si256((__m256i *)idx87_arr, idx87);
+  _mm256_store_si256((__m256i *)idx65_arr, idx65);
+  _mm256_store_si256((__m256i *)idx43_arr, idx43);
+  _mm256_store_si256((__m256i *)idx21_arr, idx21);
+
+  for (int i = 0; i < 8; i++)
+    result_arr[i] = pi87_256[idx87_arr[i]] | pi65_256[idx65_arr[i]] |
+                    pi43_256[idx43_arr[i]] | pi21_256[idx21_arr[i]];
+
+  result = _mm256_load_si256((__m256i *)result_arr);
+  n1 = _mm256_xor_si256(n1, result);
+
+  x = _mm256_add_epi32(n1, subkeys->k[0]);
+  idx87 = _mm256_and_si256(_mm256_srli_epi32(x, 24), _mm256_set1_epi32(0xff));
+  idx65 = _mm256_and_si256(_mm256_srli_epi32(x, 16), _mm256_set1_epi32(0xff));
+  idx43 = _mm256_and_si256(_mm256_srli_epi32(x, 8), _mm256_set1_epi32(0xff));
+  idx21 = _mm256_and_si256(x, _mm256_set1_epi32(0xff));
+
+  _mm256_store_si256((__m256i *)idx87_arr, idx87);
+  _mm256_store_si256((__m256i *)idx65_arr, idx65);
+  _mm256_store_si256((__m256i *)idx43_arr, idx43);
+  _mm256_store_si256((__m256i *)idx21_arr, idx21);
+
+  for (int i = 0; i < 8; i++)
+    result_arr[i] = pi87_256[idx87_arr[i]] | pi65_256[idx65_arr[i]] |
+                    pi43_256[idx43_arr[i]] | pi21_256[idx21_arr[i]];
+
+  result = _mm256_load_si256((__m256i *)result_arr);
+  n2 = _mm256_xor_si256(n2, result);
+
+  x = _mm256_add_epi32(n2, subkeys->k[1]);
+    idx87 = _mm256_and_si256(_mm256_srli_epi32(x, 24), _mm256_set1_epi32(0xff));
+  idx65 = _mm256_and_si256(_mm256_srli_epi32(x, 16), _mm256_set1_epi32(0xff));
+  idx43 = _mm256_and_si256(_mm256_srli_epi32(x, 8), _mm256_set1_epi32(0xff));
+  idx21 = _mm256_and_si256(x, _mm256_set1_epi32(0xff));
+
+  _mm256_store_si256((__m256i *)idx87_arr, idx87);
+  _mm256_store_si256((__m256i *)idx65_arr, idx65);
+  _mm256_store_si256((__m256i *)idx43_arr, idx43);
+  _mm256_store_si256((__m256i *)idx21_arr, idx21);
+
+  for (int i = 0; i < 8; i++)
+    result_arr[i] = pi87_256[idx87_arr[i]] | pi65_256[idx65_arr[i]] |
+                    pi43_256[idx43_arr[i]] | pi21_256[idx21_arr[i]];
+
+  result = _mm256_load_si256((__m256i *)result_arr);
+  n1 = _mm256_xor_si256(n1, result);
+
+  x = _mm256_add_epi32(n1, subkeys->k[2]);
+    idx87 = _mm256_and_si256(_mm256_srli_epi32(x, 24), _mm256_set1_epi32(0xff));
+  idx65 = _mm256_and_si256(_mm256_srli_epi32(x, 16), _mm256_set1_epi32(0xff));
+  idx43 = _mm256_and_si256(_mm256_srli_epi32(x, 8), _mm256_set1_epi32(0xff));
+  idx21 = _mm256_and_si256(x, _mm256_set1_epi32(0xff));
+
+  _mm256_store_si256((__m256i *)idx87_arr, idx87);
+  _mm256_store_si256((__m256i *)idx65_arr, idx65);
+  _mm256_store_si256((__m256i *)idx43_arr, idx43);
+  _mm256_store_si256((__m256i *)idx21_arr, idx21);
+
+  for (int i = 0; i < 8; i++)
+    result_arr[i] = pi87_256[idx87_arr[i]] | pi65_256[idx65_arr[i]] |
+                    pi43_256[idx43_arr[i]] | pi21_256[idx21_arr[i]];
+
+  result = _mm256_load_si256((__m256i *)result_arr);
+  n2 = _mm256_xor_si256(n2, result);
+
+  x = _mm256_add_epi32(n2, subkeys->k[3]);
+  idx87 = _mm256_and_si256(_mm256_srli_epi32(x, 24), _mm256_set1_epi32(0xff));
+  idx65 = _mm256_and_si256(_mm256_srli_epi32(x, 16), _mm256_set1_epi32(0xff));
+  idx43 = _mm256_and_si256(_mm256_srli_epi32(x, 8), _mm256_set1_epi32(0xff));
+  idx21 = _mm256_and_si256(x, _mm256_set1_epi32(0xff));
+
+  _mm256_store_si256((__m256i *)idx87_arr, idx87);
+  _mm256_store_si256((__m256i *)idx65_arr, idx65);
+  _mm256_store_si256((__m256i *)idx43_arr, idx43);
+  _mm256_store_si256((__m256i *)idx21_arr, idx21);
+
+  for (int i = 0; i < 8; i++)
+    result_arr[i] = pi87_256[idx87_arr[i]] | pi65_256[idx65_arr[i]] |
+                    pi43_256[idx43_arr[i]] | pi21_256[idx21_arr[i]];
+
+  result = _mm256_load_si256((__m256i *)result_arr);
+  n1 = _mm256_xor_si256(n1, result);
+
+  x = _mm256_add_epi32(n1, subkeys->k[4]);
+    idx87 = _mm256_and_si256(_mm256_srli_epi32(x, 24), _mm256_set1_epi32(0xff));
+  idx65 = _mm256_and_si256(_mm256_srli_epi32(x, 16), _mm256_set1_epi32(0xff));
+  idx43 = _mm256_and_si256(_mm256_srli_epi32(x, 8), _mm256_set1_epi32(0xff));
+  idx21 = _mm256_and_si256(x, _mm256_set1_epi32(0xff));
+
+  _mm256_store_si256((__m256i *)idx87_arr, idx87);
+  _mm256_store_si256((__m256i *)idx65_arr, idx65);
+  _mm256_store_si256((__m256i *)idx43_arr, idx43);
+  _mm256_store_si256((__m256i *)idx21_arr, idx21);
+
+  for (int i = 0; i < 8; i++)
+    result_arr[i] = pi87_256[idx87_arr[i]] | pi65_256[idx65_arr[i]] |
+                    pi43_256[idx43_arr[i]] | pi21_256[idx21_arr[i]];
+
+  result = _mm256_load_si256((__m256i *)result_arr);
+  n2 = _mm256_xor_si256(n2, result);
+  
+  x = _mm256_add_epi32(n2, subkeys->k[5]);
+    idx87 = _mm256_and_si256(_mm256_srli_epi32(x, 24), _mm256_set1_epi32(0xff));
+  idx65 = _mm256_and_si256(_mm256_srli_epi32(x, 16), _mm256_set1_epi32(0xff));
+  idx43 = _mm256_and_si256(_mm256_srli_epi32(x, 8), _mm256_set1_epi32(0xff));
+  idx21 = _mm256_and_si256(x, _mm256_set1_epi32(0xff));
+
+  _mm256_store_si256((__m256i *)idx87_arr, idx87);
+  _mm256_store_si256((__m256i *)idx65_arr, idx65);
+  _mm256_store_si256((__m256i *)idx43_arr, idx43);
+  _mm256_store_si256((__m256i *)idx21_arr, idx21);
+
+  for (int i = 0; i < 8; i++)
+    result_arr[i] = pi87_256[idx87_arr[i]] | pi65_256[idx65_arr[i]] |
+                    pi43_256[idx43_arr[i]] | pi21_256[idx21_arr[i]];
+
+  result = _mm256_load_si256((__m256i *)result_arr);
+  n1 = _mm256_xor_si256(n1, result);
+  
+  x = _mm256_add_epi32(n1, subkeys->k[6]);
+    idx87 = _mm256_and_si256(_mm256_srli_epi32(x, 24), _mm256_set1_epi32(0xff));
+  idx65 = _mm256_and_si256(_mm256_srli_epi32(x, 16), _mm256_set1_epi32(0xff));
+  idx43 = _mm256_and_si256(_mm256_srli_epi32(x, 8), _mm256_set1_epi32(0xff));
+  idx21 = _mm256_and_si256(x, _mm256_set1_epi32(0xff));
+
+  _mm256_store_si256((__m256i *)idx87_arr, idx87);
+  _mm256_store_si256((__m256i *)idx65_arr, idx65);
+  _mm256_store_si256((__m256i *)idx43_arr, idx43);
+  _mm256_store_si256((__m256i *)idx21_arr, idx21);
+
+  for (int i = 0; i < 8; i++)
+    result_arr[i] = pi87_256[idx87_arr[i]] | pi65_256[idx65_arr[i]] |
+                    pi43_256[idx43_arr[i]] | pi21_256[idx21_arr[i]];
+
+  result = _mm256_load_si256((__m256i *)result_arr);
+  n2 = _mm256_xor_si256(n2, result);
+  
+  x = _mm256_add_epi32(n2, subkeys->k[7]);
+    idx87 = _mm256_and_si256(_mm256_srli_epi32(x, 24), _mm256_set1_epi32(0xff));
+  idx65 = _mm256_and_si256(_mm256_srli_epi32(x, 16), _mm256_set1_epi32(0xff));
+  idx43 = _mm256_and_si256(_mm256_srli_epi32(x, 8), _mm256_set1_epi32(0xff));
+  idx21 = _mm256_and_si256(x, _mm256_set1_epi32(0xff));
+
+  _mm256_store_si256((__m256i *)idx87_arr, idx87);
+  _mm256_store_si256((__m256i *)idx65_arr, idx65);
+  _mm256_store_si256((__m256i *)idx43_arr, idx43);
+  _mm256_store_si256((__m256i *)idx21_arr, idx21);
+
+  for (int i = 0; i < 8; i++)
+    result_arr[i] = pi87_256[idx87_arr[i]] | pi65_256[idx65_arr[i]] |
+                    pi43_256[idx43_arr[i]] | pi21_256[idx21_arr[i]];
+
+  result = _mm256_load_si256((__m256i *)result_arr);
+  n1 = _mm256_xor_si256(n1, result);
+
+  x = _mm256_add_epi32(n1, subkeys->k[0]);
+  idx87 = _mm256_and_si256(_mm256_srli_epi32(x, 24), _mm256_set1_epi32(0xff));
+  idx65 = _mm256_and_si256(_mm256_srli_epi32(x, 16), _mm256_set1_epi32(0xff));
+  idx43 = _mm256_and_si256(_mm256_srli_epi32(x, 8), _mm256_set1_epi32(0xff));
+  idx21 = _mm256_and_si256(x, _mm256_set1_epi32(0xff));
+
+  _mm256_store_si256((__m256i *)idx87_arr, idx87);
+  _mm256_store_si256((__m256i *)idx65_arr, idx65);
+  _mm256_store_si256((__m256i *)idx43_arr, idx43);
+  _mm256_store_si256((__m256i *)idx21_arr, idx21);
+
+  for (int i = 0; i < 8; i++)
+    result_arr[i] = pi87_256[idx87_arr[i]] | pi65_256[idx65_arr[i]] |
+                    pi43_256[idx43_arr[i]] | pi21_256[idx21_arr[i]];
+
+  result = _mm256_load_si256((__m256i *)result_arr);
+  n2 = _mm256_xor_si256(n2, result);
+
+  x = _mm256_add_epi32(n2, subkeys->k[1]);
+    idx87 = _mm256_and_si256(_mm256_srli_epi32(x, 24), _mm256_set1_epi32(0xff));
+  idx65 = _mm256_and_si256(_mm256_srli_epi32(x, 16), _mm256_set1_epi32(0xff));
+  idx43 = _mm256_and_si256(_mm256_srli_epi32(x, 8), _mm256_set1_epi32(0xff));
+  idx21 = _mm256_and_si256(x, _mm256_set1_epi32(0xff));
+
+  _mm256_store_si256((__m256i *)idx87_arr, idx87);
+  _mm256_store_si256((__m256i *)idx65_arr, idx65);
+  _mm256_store_si256((__m256i *)idx43_arr, idx43);
+  _mm256_store_si256((__m256i *)idx21_arr, idx21);
+
+  for (int i = 0; i < 8; i++)
+    result_arr[i] = pi87_256[idx87_arr[i]] | pi65_256[idx65_arr[i]] |
+                    pi43_256[idx43_arr[i]] | pi21_256[idx21_arr[i]];
+
+  result = _mm256_load_si256((__m256i *)result_arr);
+  n1 = _mm256_xor_si256(n1, result);
+
+  x = _mm256_add_epi32(n1, subkeys->k[2]);
+    idx87 = _mm256_and_si256(_mm256_srli_epi32(x, 24), _mm256_set1_epi32(0xff));
+  idx65 = _mm256_and_si256(_mm256_srli_epi32(x, 16), _mm256_set1_epi32(0xff));
+  idx43 = _mm256_and_si256(_mm256_srli_epi32(x, 8), _mm256_set1_epi32(0xff));
+  idx21 = _mm256_and_si256(x, _mm256_set1_epi32(0xff));
+
+  _mm256_store_si256((__m256i *)idx87_arr, idx87);
+  _mm256_store_si256((__m256i *)idx65_arr, idx65);
+  _mm256_store_si256((__m256i *)idx43_arr, idx43);
+  _mm256_store_si256((__m256i *)idx21_arr, idx21);
+
+  for (int i = 0; i < 8; i++)
+    result_arr[i] = pi87_256[idx87_arr[i]] | pi65_256[idx65_arr[i]] |
+                    pi43_256[idx43_arr[i]] | pi21_256[idx21_arr[i]];
+
+  result = _mm256_load_si256((__m256i *)result_arr);
+  n2 = _mm256_xor_si256(n2, result);
+
+  x = _mm256_add_epi32(n2, subkeys->k[3]);
+  idx87 = _mm256_and_si256(_mm256_srli_epi32(x, 24), _mm256_set1_epi32(0xff));
+  idx65 = _mm256_and_si256(_mm256_srli_epi32(x, 16), _mm256_set1_epi32(0xff));
+  idx43 = _mm256_and_si256(_mm256_srli_epi32(x, 8), _mm256_set1_epi32(0xff));
+  idx21 = _mm256_and_si256(x, _mm256_set1_epi32(0xff));
+
+  _mm256_store_si256((__m256i *)idx87_arr, idx87);
+  _mm256_store_si256((__m256i *)idx65_arr, idx65);
+  _mm256_store_si256((__m256i *)idx43_arr, idx43);
+  _mm256_store_si256((__m256i *)idx21_arr, idx21);
+
+  for (int i = 0; i < 8; i++)
+    result_arr[i] = pi87_256[idx87_arr[i]] | pi65_256[idx65_arr[i]] |
+                    pi43_256[idx43_arr[i]] | pi21_256[idx21_arr[i]];
+
+  result = _mm256_load_si256((__m256i *)result_arr);
+  n1 = _mm256_xor_si256(n1, result);
+
+  x = _mm256_add_epi32(n1, subkeys->k[4]);
+    idx87 = _mm256_and_si256(_mm256_srli_epi32(x, 24), _mm256_set1_epi32(0xff));
+  idx65 = _mm256_and_si256(_mm256_srli_epi32(x, 16), _mm256_set1_epi32(0xff));
+  idx43 = _mm256_and_si256(_mm256_srli_epi32(x, 8), _mm256_set1_epi32(0xff));
+  idx21 = _mm256_and_si256(x, _mm256_set1_epi32(0xff));
+
+  _mm256_store_si256((__m256i *)idx87_arr, idx87);
+  _mm256_store_si256((__m256i *)idx65_arr, idx65);
+  _mm256_store_si256((__m256i *)idx43_arr, idx43);
+  _mm256_store_si256((__m256i *)idx21_arr, idx21);
+
+  for (int i = 0; i < 8; i++)
+    result_arr[i] = pi87_256[idx87_arr[i]] | pi65_256[idx65_arr[i]] |
+                    pi43_256[idx43_arr[i]] | pi21_256[idx21_arr[i]];
+
+  result = _mm256_load_si256((__m256i *)result_arr);
+  n2 = _mm256_xor_si256(n2, result);
+  
+  x = _mm256_add_epi32(n2, subkeys->k[5]);
+    idx87 = _mm256_and_si256(_mm256_srli_epi32(x, 24), _mm256_set1_epi32(0xff));
+  idx65 = _mm256_and_si256(_mm256_srli_epi32(x, 16), _mm256_set1_epi32(0xff));
+  idx43 = _mm256_and_si256(_mm256_srli_epi32(x, 8), _mm256_set1_epi32(0xff));
+  idx21 = _mm256_and_si256(x, _mm256_set1_epi32(0xff));
+
+  _mm256_store_si256((__m256i *)idx87_arr, idx87);
+  _mm256_store_si256((__m256i *)idx65_arr, idx65);
+  _mm256_store_si256((__m256i *)idx43_arr, idx43);
+  _mm256_store_si256((__m256i *)idx21_arr, idx21);
+
+  for (int i = 0; i < 8; i++)
+    result_arr[i] = pi87_256[idx87_arr[i]] | pi65_256[idx65_arr[i]] |
+                    pi43_256[idx43_arr[i]] | pi21_256[idx21_arr[i]];
+
+  result = _mm256_load_si256((__m256i *)result_arr);
+  n1 = _mm256_xor_si256(n1, result);
+  
+  x = _mm256_add_epi32(n1, subkeys->k[6]);
+    idx87 = _mm256_and_si256(_mm256_srli_epi32(x, 24), _mm256_set1_epi32(0xff));
+  idx65 = _mm256_and_si256(_mm256_srli_epi32(x, 16), _mm256_set1_epi32(0xff));
+  idx43 = _mm256_and_si256(_mm256_srli_epi32(x, 8), _mm256_set1_epi32(0xff));
+  idx21 = _mm256_and_si256(x, _mm256_set1_epi32(0xff));
+
+  _mm256_store_si256((__m256i *)idx87_arr, idx87);
+  _mm256_store_si256((__m256i *)idx65_arr, idx65);
+  _mm256_store_si256((__m256i *)idx43_arr, idx43);
+  _mm256_store_si256((__m256i *)idx21_arr, idx21);
+
+  for (int i = 0; i < 8; i++)
+    result_arr[i] = pi87_256[idx87_arr[i]] | pi65_256[idx65_arr[i]] |
+                    pi43_256[idx43_arr[i]] | pi21_256[idx21_arr[i]];
+
+  result = _mm256_load_si256((__m256i *)result_arr);
+  n2 = _mm256_xor_si256(n2, result);
+  
+  x = _mm256_add_epi32(n2, subkeys->k[7]);
+    idx87 = _mm256_and_si256(_mm256_srli_epi32(x, 24), _mm256_set1_epi32(0xff));
+  idx65 = _mm256_and_si256(_mm256_srli_epi32(x, 16), _mm256_set1_epi32(0xff));
+  idx43 = _mm256_and_si256(_mm256_srli_epi32(x, 8), _mm256_set1_epi32(0xff));
+  idx21 = _mm256_and_si256(x, _mm256_set1_epi32(0xff));
+
+  _mm256_store_si256((__m256i *)idx87_arr, idx87);
+  _mm256_store_si256((__m256i *)idx65_arr, idx65);
+  _mm256_store_si256((__m256i *)idx43_arr, idx43);
+  _mm256_store_si256((__m256i *)idx21_arr, idx21);
+
+  for (int i = 0; i < 8; i++)
+    result_arr[i] = pi87_256[idx87_arr[i]] | pi65_256[idx65_arr[i]] |
+                    pi43_256[idx43_arr[i]] | pi21_256[idx21_arr[i]];
+
+  result = _mm256_load_si256((__m256i *)result_arr);
+  n1 = _mm256_xor_si256(n1, result);
+
+  x = _mm256_add_epi32(n1, subkeys->k[7]);
+    idx87 = _mm256_and_si256(_mm256_srli_epi32(x, 24), _mm256_set1_epi32(0xff));
+  idx65 = _mm256_and_si256(_mm256_srli_epi32(x, 16), _mm256_set1_epi32(0xff));
+  idx43 = _mm256_and_si256(_mm256_srli_epi32(x, 8), _mm256_set1_epi32(0xff));
+  idx21 = _mm256_and_si256(x, _mm256_set1_epi32(0xff));
+
+  _mm256_store_si256((__m256i *)idx87_arr, idx87);
+  _mm256_store_si256((__m256i *)idx65_arr, idx65);
+  _mm256_store_si256((__m256i *)idx43_arr, idx43);
+  _mm256_store_si256((__m256i *)idx21_arr, idx21);
+
+  for (int i = 0; i < 8; i++)
+    result_arr[i] = pi87_256[idx87_arr[i]] | pi65_256[idx65_arr[i]] |
+                    pi43_256[idx43_arr[i]] | pi21_256[idx21_arr[i]];
+
+  result = _mm256_load_si256((__m256i *)result_arr);
+  n2 = _mm256_xor_si256(n2, result);
+  
+  x = _mm256_add_epi32(n2, subkeys->k[6]);
+    idx87 = _mm256_and_si256(_mm256_srli_epi32(x, 24), _mm256_set1_epi32(0xff));
+  idx65 = _mm256_and_si256(_mm256_srli_epi32(x, 16), _mm256_set1_epi32(0xff));
+  idx43 = _mm256_and_si256(_mm256_srli_epi32(x, 8), _mm256_set1_epi32(0xff));
+  idx21 = _mm256_and_si256(x, _mm256_set1_epi32(0xff));
+
+  _mm256_store_si256((__m256i *)idx87_arr, idx87);
+  _mm256_store_si256((__m256i *)idx65_arr, idx65);
+  _mm256_store_si256((__m256i *)idx43_arr, idx43);
+  _mm256_store_si256((__m256i *)idx21_arr, idx21);
+
+  for (int i = 0; i < 8; i++)
+    result_arr[i] = pi87_256[idx87_arr[i]] | pi65_256[idx65_arr[i]] |
+                    pi43_256[idx43_arr[i]] | pi21_256[idx21_arr[i]];
+
+  result = _mm256_load_si256((__m256i *)result_arr);
+  n1 = _mm256_xor_si256(n1, result);
+  
+  x = _mm256_add_epi32(n1, subkeys->k[5]);
+    idx87 = _mm256_and_si256(_mm256_srli_epi32(x, 24), _mm256_set1_epi32(0xff));
+  idx65 = _mm256_and_si256(_mm256_srli_epi32(x, 16), _mm256_set1_epi32(0xff));
+  idx43 = _mm256_and_si256(_mm256_srli_epi32(x, 8), _mm256_set1_epi32(0xff));
+  idx21 = _mm256_and_si256(x, _mm256_set1_epi32(0xff));
+
+  _mm256_store_si256((__m256i *)idx87_arr, idx87);
+  _mm256_store_si256((__m256i *)idx65_arr, idx65);
+  _mm256_store_si256((__m256i *)idx43_arr, idx43);
+  _mm256_store_si256((__m256i *)idx21_arr, idx21);
+
+  for (int i = 0; i < 8; i++)
+    result_arr[i] = pi87_256[idx87_arr[i]] | pi65_256[idx65_arr[i]] |
+                    pi43_256[idx43_arr[i]] | pi21_256[idx21_arr[i]];
+
+  result = _mm256_load_si256((__m256i *)result_arr);
+  n2 = _mm256_xor_si256(n2, result);
+  
+  x = _mm256_add_epi32(n2, subkeys->k[4]);
+    idx87 = _mm256_and_si256(_mm256_srli_epi32(x, 24), _mm256_set1_epi32(0xff));
+  idx65 = _mm256_and_si256(_mm256_srli_epi32(x, 16), _mm256_set1_epi32(0xff));
+  idx43 = _mm256_and_si256(_mm256_srli_epi32(x, 8), _mm256_set1_epi32(0xff));
+  idx21 = _mm256_and_si256(x, _mm256_set1_epi32(0xff));
+
+  _mm256_store_si256((__m256i *)idx87_arr, idx87);
+  _mm256_store_si256((__m256i *)idx65_arr, idx65);
+  _mm256_store_si256((__m256i *)idx43_arr, idx43);
+  _mm256_store_si256((__m256i *)idx21_arr, idx21);
+
+  for (int i = 0; i < 8; i++)
+    result_arr[i] = pi87_256[idx87_arr[i]] | pi65_256[idx65_arr[i]] |
+                    pi43_256[idx43_arr[i]] | pi21_256[idx21_arr[i]];
+
+  result = _mm256_load_si256((__m256i *)result_arr);
+  n1 = _mm256_xor_si256(n1, result);
+  
+  x = _mm256_add_epi32(n1, subkeys->k[3]);
+    idx87 = _mm256_and_si256(_mm256_srli_epi32(x, 24), _mm256_set1_epi32(0xff));
+  idx65 = _mm256_and_si256(_mm256_srli_epi32(x, 16), _mm256_set1_epi32(0xff));
+  idx43 = _mm256_and_si256(_mm256_srli_epi32(x, 8), _mm256_set1_epi32(0xff));
+  idx21 = _mm256_and_si256(x, _mm256_set1_epi32(0xff));
+
+  _mm256_store_si256((__m256i *)idx87_arr, idx87);
+  _mm256_store_si256((__m256i *)idx65_arr, idx65);
+  _mm256_store_si256((__m256i *)idx43_arr, idx43);
+  _mm256_store_si256((__m256i *)idx21_arr, idx21);
+
+  for (int i = 0; i < 8; i++)
+    result_arr[i] = pi87_256[idx87_arr[i]] | pi65_256[idx65_arr[i]] |
+                    pi43_256[idx43_arr[i]] | pi21_256[idx21_arr[i]];
+
+  result = _mm256_load_si256((__m256i *)result_arr);
+  n2 = _mm256_xor_si256(n2, result);
+  
+  x = _mm256_add_epi32(n2, subkeys->k[2]);
+    idx87 = _mm256_and_si256(_mm256_srli_epi32(x, 24), _mm256_set1_epi32(0xff));
+  idx65 = _mm256_and_si256(_mm256_srli_epi32(x, 16), _mm256_set1_epi32(0xff));
+  idx43 = _mm256_and_si256(_mm256_srli_epi32(x, 8), _mm256_set1_epi32(0xff));
+  idx21 = _mm256_and_si256(x, _mm256_set1_epi32(0xff));
+
+  _mm256_store_si256((__m256i *)idx87_arr, idx87);
+  _mm256_store_si256((__m256i *)idx65_arr, idx65);
+  _mm256_store_si256((__m256i *)idx43_arr, idx43);
+  _mm256_store_si256((__m256i *)idx21_arr, idx21);
+
+  for (int i = 0; i < 8; i++)
+    result_arr[i] = pi87_256[idx87_arr[i]] | pi65_256[idx65_arr[i]] |
+                    pi43_256[idx43_arr[i]] | pi21_256[idx21_arr[i]];
+
+  result = _mm256_load_si256((__m256i *)result_arr);
+  n1 = _mm256_xor_si256(n1, result);
+  
+  x = _mm256_add_epi32(n1, subkeys->k[1]);
+    idx87 = _mm256_and_si256(_mm256_srli_epi32(x, 24), _mm256_set1_epi32(0xff));
+  idx65 = _mm256_and_si256(_mm256_srli_epi32(x, 16), _mm256_set1_epi32(0xff));
+  idx43 = _mm256_and_si256(_mm256_srli_epi32(x, 8), _mm256_set1_epi32(0xff));
+  idx21 = _mm256_and_si256(x, _mm256_set1_epi32(0xff));
+
+  _mm256_store_si256((__m256i *)idx87_arr, idx87);
+  _mm256_store_si256((__m256i *)idx65_arr, idx65);
+  _mm256_store_si256((__m256i *)idx43_arr, idx43);
+  _mm256_store_si256((__m256i *)idx21_arr, idx21);
+
+  for (int i = 0; i < 8; i++)
+    result_arr[i] = pi87_256[idx87_arr[i]] | pi65_256[idx65_arr[i]] |
+                    pi43_256[idx43_arr[i]] | pi21_256[idx21_arr[i]];
+
+  result = _mm256_load_si256((__m256i *)result_arr);
+  n2 = _mm256_xor_si256(n2, result);
+  
+  x = _mm256_add_epi32(n2, subkeys->k[0]);
+    idx87 = _mm256_and_si256(_mm256_srli_epi32(x, 24), _mm256_set1_epi32(0xff));
+  idx65 = _mm256_and_si256(_mm256_srli_epi32(x, 16), _mm256_set1_epi32(0xff));
+  idx43 = _mm256_and_si256(_mm256_srli_epi32(x, 8), _mm256_set1_epi32(0xff));
+  idx21 = _mm256_and_si256(x, _mm256_set1_epi32(0xff));
+
+  _mm256_store_si256((__m256i *)idx87_arr, idx87);
+  _mm256_store_si256((__m256i *)idx65_arr, idx65);
+  _mm256_store_si256((__m256i *)idx43_arr, idx43);
+  _mm256_store_si256((__m256i *)idx21_arr, idx21);
+
+  for (int i = 0; i < 8; i++)
+    result_arr[i] = pi87_256[idx87_arr[i]] | pi65_256[idx65_arr[i]] |
+                    pi43_256[idx43_arr[i]] | pi21_256[idx21_arr[i]];
+
+  result = _mm256_load_si256((__m256i *)result_arr);
+  n1 = _mm256_xor_si256(n1, result);
 
   block0 = _mm256_unpacklo_epi32(n1, n2);
   block1 = _mm256_unpackhi_epi32(n1, n2);
@@ -595,8 +1142,8 @@ static inline void magma_encrypt_8blocks(magma_subkeys_256 *subkeys,
   block0 = _mm256_shuffle_epi8(block0, subkeys->shuffle_mask);
   block1 = _mm256_shuffle_epi8(block1, subkeys->shuffle_mask);
 #endif
-  _mm256_storeu_si256((__m256i *)(out), block0);
-  _mm256_storeu_si256((__m256i *)(out + 32), block1);
+  _mm256_store_si256((__m256i *)(out), block0);
+  _mm256_store_si256((__m256i *)(out + 32), block1);
 }
 
 static void fill_random(uint8_t *data, size_t size) {
@@ -675,7 +1222,7 @@ void test_f_function() {
 
     // Извлекаем первое значение
     uint32_t simd_result_arr[8];
-    _mm256_storeu_si256((__m256i *)simd_result_arr, simd_result_vec);
+    _mm256_store_si256((__m256i *)simd_result_arr, simd_result_vec);
     uint32_t simd_result = simd_result_arr[0];
 
     printf("Тест %d: 0x%08x\n", i, test_values[i]);
@@ -714,8 +1261,8 @@ void test_single_block_encryption() {
   magma_set_key_256(&ctx_256, key);
 
   uint8_t plaintext[8] = {0x01, 0x23, 0x45, 0x67, 0x89, 0xAB, 0xCD, 0xEF};
-  uint8_t ciphertext_scalar[8];
-  uint8_t ciphertext_simd[64];
+  uint8_t ciphertext_scalar[8] __attribute__((aligned(32)));
+  uint8_t ciphertext_simd[64] __attribute__((aligned(32)));
 
   printf("Plaintext: ");
   for (int i = 0; i < 8; i++)
@@ -783,12 +1330,12 @@ void debug_simd_data_loading() {
     memcpy(plaintext_256 + i * 8, plaintext, 8);
   }
 
-  __m256i block0 = _mm256_loadu_si256((const __m256i *)(plaintext_256 + 0));
-  __m256i block1 = _mm256_loadu_si256((const __m256i *)(plaintext_256 + 32));
+  __m256i block0 = _mm256_load_si256((const __m256i *)(plaintext_256 + 0));
+  __m256i block1 = _mm256_load_si256((const __m256i *)(plaintext_256 + 32));
 
-  uint8_t loaded_bytes[64];
-  _mm256_storeu_si256((__m256i *)(loaded_bytes), block0);
-  _mm256_storeu_si256((__m256i *)(loaded_bytes + 32), block1);
+  uint8_t loaded_bytes[64] __attribute__((aligned(32)));
+  _mm256_store_si256((__m256i *)(loaded_bytes), block0);
+  _mm256_store_si256((__m256i *)(loaded_bytes + 32), block1);
 
   printf("SIMD загрузка (первый блок):\n");
   printf("  Байты как загружены: ");
@@ -804,9 +1351,9 @@ void debug_simd_data_loading() {
   __m256i shuffled0 = _mm256_shuffle_epi8(block0, shuffle_mask);
   __m256i shuffled1 = _mm256_shuffle_epi8(block1, shuffle_mask);
 
-  uint8_t shuffled_bytes[64];
-  _mm256_storeu_si256((__m256i *)(shuffled_bytes), shuffled0);
-  _mm256_storeu_si256((__m256i *)(shuffled_bytes + 32), shuffled1);
+  uint8_t shuffled_bytes[64] __attribute__((aligned(32)));
+  _mm256_store_si256((__m256i *)(shuffled_bytes), shuffled0);
+  _mm256_store_si256((__m256i *)(shuffled_bytes + 32), shuffled1);
 
   printf("  После shuffle: ");
   for (int i = 0; i < 8; i++)
@@ -832,9 +1379,9 @@ void debug_simd_data_loading() {
   __m256i n1 = _mm256_and_si256(all_blocks, mask_n1);
   n1 = _mm256_srli_epi64(n1, 32);
 
-  uint32_t n1_arr[8], n2_arr[8];
-  _mm256_storeu_si256((__m256i *)n1_arr, n1);
-  _mm256_storeu_si256((__m256i *)n2_arr, n2);
+  uint32_t n1_arr[8] __attribute__((aligned(32))), n2_arr[8] __attribute__((aligned(32)));
+  _mm256_store_si256((__m256i *)n1_arr, n1);
+  _mm256_store_si256((__m256i *)n2_arr, n2);
 
   printf("\nРазделение на n1 и n2 (первый блок):\n");
   printf("  n2[0] = 0x%08x (ожидается 0x%08x)\n", n2_arr[0], n2_scalar);
@@ -863,7 +1410,7 @@ int main() {
   uint8_t plaintext[8];
   uint8_t ciphertext[8];
 
-  int iterations = 1000000;
+  int iterations = 10000000;
 
   long double speed_scalar =
       benchmark_scalar_minimal(&ctx, iterations, plaintext, ciphertext);
