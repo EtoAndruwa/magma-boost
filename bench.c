@@ -411,12 +411,12 @@ void print_magma_blocks(const uint8_t *data, size_t total_bytes) {
   }
 }
 
-inline static uint32_t f(uint32_t x) {
+__attribute((noinline)) uint32_t f(uint32_t x) {
   return pi87[x >> 24 & 0xff] | pi65[x >> 16 & 0xff] | pi43[x >> 8 & 0xff] |
          pi21[x & 0xff];
 }
 
-inline static void magma_encrypt_scalar(magma_subkeys *subkeys, uint8_t *out,
+__attribute((noinline)) void magma_encrypt_scalar(magma_subkeys *subkeys, uint8_t *out,
                                         const uint8_t *in) {
   uint32_t n2 = GETU32_BE(in);
   uint32_t n1 = GETU32_BE(in + 4);
@@ -1167,7 +1167,7 @@ static long double benchmark_simd_minimal(magma_subkeys_256 *ctx,
   long double bytes_processed = 64 * iterations;
   long double speed = bytes_processed / simd_time;
   printf("bytes_processed_simd: %Lf\n", bytes_processed);
-  printf("speed_simd: %.2Lf ГБит/с\n", 8 * speed / 1000000000);
+  printf("speed_simd: %.2Lf ГБит/с\n", 8 * (speed / 1000000000));
 
   printf("  Минимальный SIMD тест (8 блоков за операцию):\n");
   printf("    Итераций: %d\n", iterations);
@@ -1196,7 +1196,7 @@ static long double benchmark_scalar_minimal(magma_subkeys *ctx, int iterations,
   long double bytes_processed = 8 * iterations;
   long double speed = bytes_processed / scalar_time;
   printf("bytes_processed_scalar: %Lf\n", bytes_processed);
-  printf("speed_scalar: %.2Lf Гбит/с\n", 8 * speed / 1000000000);
+  printf("speed_scalar: %.2Lf Гбит/с\n", 8 * (speed / 1000000000));
 
   printf("  Скалярный тест (1 блок за операцию):\n");
   printf("    Итераций: %d\n", iterations);
