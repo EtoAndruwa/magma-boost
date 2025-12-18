@@ -554,7 +554,7 @@ static inline void magma_encrypt_8blocks(magma_subkeys_256 *subkeys,
       idx65_arr[8] __attribute__((aligned(32))),
       idx43_arr[8] __attribute__((aligned(32))),
       idx21_arr[8] __attribute__((aligned(32)));
-  uint32_t result_arr[8]__attribute__((aligned(32)));
+  uint32_t result_arr[8] __attribute__((aligned(32)));
 
   x = _mm256_add_epi32(n1, subkeys->k[0]);
   idx87 = _mm256_and_si256(_mm256_srli_epi32(x, 24), _mm256_set1_epi32(0xff));
@@ -575,7 +575,7 @@ static inline void magma_encrypt_8blocks(magma_subkeys_256 *subkeys,
   n2 = _mm256_xor_si256(n2, result);
 
   x = _mm256_add_epi32(n2, subkeys->k[1]);
-    idx87 = _mm256_and_si256(_mm256_srli_epi32(x, 24), _mm256_set1_epi32(0xff));
+  idx87 = _mm256_and_si256(_mm256_srli_epi32(x, 24), _mm256_set1_epi32(0xff));
   idx65 = _mm256_and_si256(_mm256_srli_epi32(x, 16), _mm256_set1_epi32(0xff));
   idx43 = _mm256_and_si256(_mm256_srli_epi32(x, 8), _mm256_set1_epi32(0xff));
   idx21 = _mm256_and_si256(x, _mm256_set1_epi32(0xff));
@@ -593,7 +593,7 @@ static inline void magma_encrypt_8blocks(magma_subkeys_256 *subkeys,
   n1 = _mm256_xor_si256(n1, result);
 
   x = _mm256_add_epi32(n1, subkeys->k[2]);
-    idx87 = _mm256_and_si256(_mm256_srli_epi32(x, 24), _mm256_set1_epi32(0xff));
+  idx87 = _mm256_and_si256(_mm256_srli_epi32(x, 24), _mm256_set1_epi32(0xff));
   idx65 = _mm256_and_si256(_mm256_srli_epi32(x, 16), _mm256_set1_epi32(0xff));
   idx43 = _mm256_and_si256(_mm256_srli_epi32(x, 8), _mm256_set1_epi32(0xff));
   idx21 = _mm256_and_si256(x, _mm256_set1_epi32(0xff));
@@ -629,7 +629,7 @@ static inline void magma_encrypt_8blocks(magma_subkeys_256 *subkeys,
   n1 = _mm256_xor_si256(n1, result);
 
   x = _mm256_add_epi32(n1, subkeys->k[4]);
-    idx87 = _mm256_and_si256(_mm256_srli_epi32(x, 24), _mm256_set1_epi32(0xff));
+  idx87 = _mm256_and_si256(_mm256_srli_epi32(x, 24), _mm256_set1_epi32(0xff));
   idx65 = _mm256_and_si256(_mm256_srli_epi32(x, 16), _mm256_set1_epi32(0xff));
   idx43 = _mm256_and_si256(_mm256_srli_epi32(x, 8), _mm256_set1_epi32(0xff));
   idx21 = _mm256_and_si256(x, _mm256_set1_epi32(0xff));
@@ -645,9 +645,9 @@ static inline void magma_encrypt_8blocks(magma_subkeys_256 *subkeys,
 
   result = _mm256_load_si256((__m256i *)result_arr);
   n2 = _mm256_xor_si256(n2, result);
-  
+
   x = _mm256_add_epi32(n2, subkeys->k[5]);
-    idx87 = _mm256_and_si256(_mm256_srli_epi32(x, 24), _mm256_set1_epi32(0xff));
+  idx87 = _mm256_and_si256(_mm256_srli_epi32(x, 24), _mm256_set1_epi32(0xff));
   idx65 = _mm256_and_si256(_mm256_srli_epi32(x, 16), _mm256_set1_epi32(0xff));
   idx43 = _mm256_and_si256(_mm256_srli_epi32(x, 8), _mm256_set1_epi32(0xff));
   idx21 = _mm256_and_si256(x, _mm256_set1_epi32(0xff));
@@ -663,9 +663,9 @@ static inline void magma_encrypt_8blocks(magma_subkeys_256 *subkeys,
 
   result = _mm256_load_si256((__m256i *)result_arr);
   n1 = _mm256_xor_si256(n1, result);
-  
+
   x = _mm256_add_epi32(n1, subkeys->k[6]);
-    idx87 = _mm256_and_si256(_mm256_srli_epi32(x, 24), _mm256_set1_epi32(0xff));
+  idx87 = _mm256_and_si256(_mm256_srli_epi32(x, 24), _mm256_set1_epi32(0xff));
   idx65 = _mm256_and_si256(_mm256_srli_epi32(x, 16), _mm256_set1_epi32(0xff));
   idx43 = _mm256_and_si256(_mm256_srli_epi32(x, 8), _mm256_set1_epi32(0xff));
   idx21 = _mm256_and_si256(x, _mm256_set1_epi32(0xff));
@@ -681,9 +681,9 @@ static inline void magma_encrypt_8blocks(magma_subkeys_256 *subkeys,
 
   result = _mm256_load_si256((__m256i *)result_arr);
   n2 = _mm256_xor_si256(n2, result);
-  
+
   x = _mm256_add_epi32(n2, subkeys->k[7]);
-    idx87 = _mm256_and_si256(_mm256_srli_epi32(x, 24), _mm256_set1_epi32(0xff));
+  idx87 = _mm256_and_si256(_mm256_srli_epi32(x, 24), _mm256_set1_epi32(0xff));
   idx65 = _mm256_and_si256(_mm256_srli_epi32(x, 16), _mm256_set1_epi32(0xff));
   idx43 = _mm256_and_si256(_mm256_srli_epi32(x, 8), _mm256_set1_epi32(0xff));
   idx21 = _mm256_and_si256(x, _mm256_set1_epi32(0xff));
@@ -719,7 +719,7 @@ static inline void magma_encrypt_8blocks(magma_subkeys_256 *subkeys,
   n2 = _mm256_xor_si256(n2, result);
 
   x = _mm256_add_epi32(n2, subkeys->k[1]);
-    idx87 = _mm256_and_si256(_mm256_srli_epi32(x, 24), _mm256_set1_epi32(0xff));
+  idx87 = _mm256_and_si256(_mm256_srli_epi32(x, 24), _mm256_set1_epi32(0xff));
   idx65 = _mm256_and_si256(_mm256_srli_epi32(x, 16), _mm256_set1_epi32(0xff));
   idx43 = _mm256_and_si256(_mm256_srli_epi32(x, 8), _mm256_set1_epi32(0xff));
   idx21 = _mm256_and_si256(x, _mm256_set1_epi32(0xff));
@@ -737,7 +737,7 @@ static inline void magma_encrypt_8blocks(magma_subkeys_256 *subkeys,
   n1 = _mm256_xor_si256(n1, result);
 
   x = _mm256_add_epi32(n1, subkeys->k[2]);
-    idx87 = _mm256_and_si256(_mm256_srli_epi32(x, 24), _mm256_set1_epi32(0xff));
+  idx87 = _mm256_and_si256(_mm256_srli_epi32(x, 24), _mm256_set1_epi32(0xff));
   idx65 = _mm256_and_si256(_mm256_srli_epi32(x, 16), _mm256_set1_epi32(0xff));
   idx43 = _mm256_and_si256(_mm256_srli_epi32(x, 8), _mm256_set1_epi32(0xff));
   idx21 = _mm256_and_si256(x, _mm256_set1_epi32(0xff));
@@ -773,7 +773,7 @@ static inline void magma_encrypt_8blocks(magma_subkeys_256 *subkeys,
   n1 = _mm256_xor_si256(n1, result);
 
   x = _mm256_add_epi32(n1, subkeys->k[4]);
-    idx87 = _mm256_and_si256(_mm256_srli_epi32(x, 24), _mm256_set1_epi32(0xff));
+  idx87 = _mm256_and_si256(_mm256_srli_epi32(x, 24), _mm256_set1_epi32(0xff));
   idx65 = _mm256_and_si256(_mm256_srli_epi32(x, 16), _mm256_set1_epi32(0xff));
   idx43 = _mm256_and_si256(_mm256_srli_epi32(x, 8), _mm256_set1_epi32(0xff));
   idx21 = _mm256_and_si256(x, _mm256_set1_epi32(0xff));
@@ -789,9 +789,9 @@ static inline void magma_encrypt_8blocks(magma_subkeys_256 *subkeys,
 
   result = _mm256_load_si256((__m256i *)result_arr);
   n2 = _mm256_xor_si256(n2, result);
-  
+
   x = _mm256_add_epi32(n2, subkeys->k[5]);
-    idx87 = _mm256_and_si256(_mm256_srli_epi32(x, 24), _mm256_set1_epi32(0xff));
+  idx87 = _mm256_and_si256(_mm256_srli_epi32(x, 24), _mm256_set1_epi32(0xff));
   idx65 = _mm256_and_si256(_mm256_srli_epi32(x, 16), _mm256_set1_epi32(0xff));
   idx43 = _mm256_and_si256(_mm256_srli_epi32(x, 8), _mm256_set1_epi32(0xff));
   idx21 = _mm256_and_si256(x, _mm256_set1_epi32(0xff));
@@ -807,9 +807,9 @@ static inline void magma_encrypt_8blocks(magma_subkeys_256 *subkeys,
 
   result = _mm256_load_si256((__m256i *)result_arr);
   n1 = _mm256_xor_si256(n1, result);
-  
+
   x = _mm256_add_epi32(n1, subkeys->k[6]);
-    idx87 = _mm256_and_si256(_mm256_srli_epi32(x, 24), _mm256_set1_epi32(0xff));
+  idx87 = _mm256_and_si256(_mm256_srli_epi32(x, 24), _mm256_set1_epi32(0xff));
   idx65 = _mm256_and_si256(_mm256_srli_epi32(x, 16), _mm256_set1_epi32(0xff));
   idx43 = _mm256_and_si256(_mm256_srli_epi32(x, 8), _mm256_set1_epi32(0xff));
   idx21 = _mm256_and_si256(x, _mm256_set1_epi32(0xff));
@@ -825,9 +825,9 @@ static inline void magma_encrypt_8blocks(magma_subkeys_256 *subkeys,
 
   result = _mm256_load_si256((__m256i *)result_arr);
   n2 = _mm256_xor_si256(n2, result);
-  
+
   x = _mm256_add_epi32(n2, subkeys->k[7]);
-    idx87 = _mm256_and_si256(_mm256_srli_epi32(x, 24), _mm256_set1_epi32(0xff));
+  idx87 = _mm256_and_si256(_mm256_srli_epi32(x, 24), _mm256_set1_epi32(0xff));
   idx65 = _mm256_and_si256(_mm256_srli_epi32(x, 16), _mm256_set1_epi32(0xff));
   idx43 = _mm256_and_si256(_mm256_srli_epi32(x, 8), _mm256_set1_epi32(0xff));
   idx21 = _mm256_and_si256(x, _mm256_set1_epi32(0xff));
@@ -863,7 +863,7 @@ static inline void magma_encrypt_8blocks(magma_subkeys_256 *subkeys,
   n2 = _mm256_xor_si256(n2, result);
 
   x = _mm256_add_epi32(n2, subkeys->k[1]);
-    idx87 = _mm256_and_si256(_mm256_srli_epi32(x, 24), _mm256_set1_epi32(0xff));
+  idx87 = _mm256_and_si256(_mm256_srli_epi32(x, 24), _mm256_set1_epi32(0xff));
   idx65 = _mm256_and_si256(_mm256_srli_epi32(x, 16), _mm256_set1_epi32(0xff));
   idx43 = _mm256_and_si256(_mm256_srli_epi32(x, 8), _mm256_set1_epi32(0xff));
   idx21 = _mm256_and_si256(x, _mm256_set1_epi32(0xff));
@@ -881,7 +881,7 @@ static inline void magma_encrypt_8blocks(magma_subkeys_256 *subkeys,
   n1 = _mm256_xor_si256(n1, result);
 
   x = _mm256_add_epi32(n1, subkeys->k[2]);
-    idx87 = _mm256_and_si256(_mm256_srli_epi32(x, 24), _mm256_set1_epi32(0xff));
+  idx87 = _mm256_and_si256(_mm256_srli_epi32(x, 24), _mm256_set1_epi32(0xff));
   idx65 = _mm256_and_si256(_mm256_srli_epi32(x, 16), _mm256_set1_epi32(0xff));
   idx43 = _mm256_and_si256(_mm256_srli_epi32(x, 8), _mm256_set1_epi32(0xff));
   idx21 = _mm256_and_si256(x, _mm256_set1_epi32(0xff));
@@ -917,7 +917,7 @@ static inline void magma_encrypt_8blocks(magma_subkeys_256 *subkeys,
   n1 = _mm256_xor_si256(n1, result);
 
   x = _mm256_add_epi32(n1, subkeys->k[4]);
-    idx87 = _mm256_and_si256(_mm256_srli_epi32(x, 24), _mm256_set1_epi32(0xff));
+  idx87 = _mm256_and_si256(_mm256_srli_epi32(x, 24), _mm256_set1_epi32(0xff));
   idx65 = _mm256_and_si256(_mm256_srli_epi32(x, 16), _mm256_set1_epi32(0xff));
   idx43 = _mm256_and_si256(_mm256_srli_epi32(x, 8), _mm256_set1_epi32(0xff));
   idx21 = _mm256_and_si256(x, _mm256_set1_epi32(0xff));
@@ -933,9 +933,9 @@ static inline void magma_encrypt_8blocks(magma_subkeys_256 *subkeys,
 
   result = _mm256_load_si256((__m256i *)result_arr);
   n2 = _mm256_xor_si256(n2, result);
-  
+
   x = _mm256_add_epi32(n2, subkeys->k[5]);
-    idx87 = _mm256_and_si256(_mm256_srli_epi32(x, 24), _mm256_set1_epi32(0xff));
+  idx87 = _mm256_and_si256(_mm256_srli_epi32(x, 24), _mm256_set1_epi32(0xff));
   idx65 = _mm256_and_si256(_mm256_srli_epi32(x, 16), _mm256_set1_epi32(0xff));
   idx43 = _mm256_and_si256(_mm256_srli_epi32(x, 8), _mm256_set1_epi32(0xff));
   idx21 = _mm256_and_si256(x, _mm256_set1_epi32(0xff));
@@ -951,9 +951,9 @@ static inline void magma_encrypt_8blocks(magma_subkeys_256 *subkeys,
 
   result = _mm256_load_si256((__m256i *)result_arr);
   n1 = _mm256_xor_si256(n1, result);
-  
+
   x = _mm256_add_epi32(n1, subkeys->k[6]);
-    idx87 = _mm256_and_si256(_mm256_srli_epi32(x, 24), _mm256_set1_epi32(0xff));
+  idx87 = _mm256_and_si256(_mm256_srli_epi32(x, 24), _mm256_set1_epi32(0xff));
   idx65 = _mm256_and_si256(_mm256_srli_epi32(x, 16), _mm256_set1_epi32(0xff));
   idx43 = _mm256_and_si256(_mm256_srli_epi32(x, 8), _mm256_set1_epi32(0xff));
   idx21 = _mm256_and_si256(x, _mm256_set1_epi32(0xff));
@@ -969,9 +969,9 @@ static inline void magma_encrypt_8blocks(magma_subkeys_256 *subkeys,
 
   result = _mm256_load_si256((__m256i *)result_arr);
   n2 = _mm256_xor_si256(n2, result);
-  
+
   x = _mm256_add_epi32(n2, subkeys->k[7]);
-    idx87 = _mm256_and_si256(_mm256_srli_epi32(x, 24), _mm256_set1_epi32(0xff));
+  idx87 = _mm256_and_si256(_mm256_srli_epi32(x, 24), _mm256_set1_epi32(0xff));
   idx65 = _mm256_and_si256(_mm256_srli_epi32(x, 16), _mm256_set1_epi32(0xff));
   idx43 = _mm256_and_si256(_mm256_srli_epi32(x, 8), _mm256_set1_epi32(0xff));
   idx21 = _mm256_and_si256(x, _mm256_set1_epi32(0xff));
@@ -989,7 +989,7 @@ static inline void magma_encrypt_8blocks(magma_subkeys_256 *subkeys,
   n1 = _mm256_xor_si256(n1, result);
 
   x = _mm256_add_epi32(n1, subkeys->k[7]);
-    idx87 = _mm256_and_si256(_mm256_srli_epi32(x, 24), _mm256_set1_epi32(0xff));
+  idx87 = _mm256_and_si256(_mm256_srli_epi32(x, 24), _mm256_set1_epi32(0xff));
   idx65 = _mm256_and_si256(_mm256_srli_epi32(x, 16), _mm256_set1_epi32(0xff));
   idx43 = _mm256_and_si256(_mm256_srli_epi32(x, 8), _mm256_set1_epi32(0xff));
   idx21 = _mm256_and_si256(x, _mm256_set1_epi32(0xff));
@@ -1005,9 +1005,9 @@ static inline void magma_encrypt_8blocks(magma_subkeys_256 *subkeys,
 
   result = _mm256_load_si256((__m256i *)result_arr);
   n2 = _mm256_xor_si256(n2, result);
-  
+
   x = _mm256_add_epi32(n2, subkeys->k[6]);
-    idx87 = _mm256_and_si256(_mm256_srli_epi32(x, 24), _mm256_set1_epi32(0xff));
+  idx87 = _mm256_and_si256(_mm256_srli_epi32(x, 24), _mm256_set1_epi32(0xff));
   idx65 = _mm256_and_si256(_mm256_srli_epi32(x, 16), _mm256_set1_epi32(0xff));
   idx43 = _mm256_and_si256(_mm256_srli_epi32(x, 8), _mm256_set1_epi32(0xff));
   idx21 = _mm256_and_si256(x, _mm256_set1_epi32(0xff));
@@ -1023,9 +1023,9 @@ static inline void magma_encrypt_8blocks(magma_subkeys_256 *subkeys,
 
   result = _mm256_load_si256((__m256i *)result_arr);
   n1 = _mm256_xor_si256(n1, result);
-  
+
   x = _mm256_add_epi32(n1, subkeys->k[5]);
-    idx87 = _mm256_and_si256(_mm256_srli_epi32(x, 24), _mm256_set1_epi32(0xff));
+  idx87 = _mm256_and_si256(_mm256_srli_epi32(x, 24), _mm256_set1_epi32(0xff));
   idx65 = _mm256_and_si256(_mm256_srli_epi32(x, 16), _mm256_set1_epi32(0xff));
   idx43 = _mm256_and_si256(_mm256_srli_epi32(x, 8), _mm256_set1_epi32(0xff));
   idx21 = _mm256_and_si256(x, _mm256_set1_epi32(0xff));
@@ -1041,9 +1041,9 @@ static inline void magma_encrypt_8blocks(magma_subkeys_256 *subkeys,
 
   result = _mm256_load_si256((__m256i *)result_arr);
   n2 = _mm256_xor_si256(n2, result);
-  
+
   x = _mm256_add_epi32(n2, subkeys->k[4]);
-    idx87 = _mm256_and_si256(_mm256_srli_epi32(x, 24), _mm256_set1_epi32(0xff));
+  idx87 = _mm256_and_si256(_mm256_srli_epi32(x, 24), _mm256_set1_epi32(0xff));
   idx65 = _mm256_and_si256(_mm256_srli_epi32(x, 16), _mm256_set1_epi32(0xff));
   idx43 = _mm256_and_si256(_mm256_srli_epi32(x, 8), _mm256_set1_epi32(0xff));
   idx21 = _mm256_and_si256(x, _mm256_set1_epi32(0xff));
@@ -1059,9 +1059,9 @@ static inline void magma_encrypt_8blocks(magma_subkeys_256 *subkeys,
 
   result = _mm256_load_si256((__m256i *)result_arr);
   n1 = _mm256_xor_si256(n1, result);
-  
+
   x = _mm256_add_epi32(n1, subkeys->k[3]);
-    idx87 = _mm256_and_si256(_mm256_srli_epi32(x, 24), _mm256_set1_epi32(0xff));
+  idx87 = _mm256_and_si256(_mm256_srli_epi32(x, 24), _mm256_set1_epi32(0xff));
   idx65 = _mm256_and_si256(_mm256_srli_epi32(x, 16), _mm256_set1_epi32(0xff));
   idx43 = _mm256_and_si256(_mm256_srli_epi32(x, 8), _mm256_set1_epi32(0xff));
   idx21 = _mm256_and_si256(x, _mm256_set1_epi32(0xff));
@@ -1077,9 +1077,9 @@ static inline void magma_encrypt_8blocks(magma_subkeys_256 *subkeys,
 
   result = _mm256_load_si256((__m256i *)result_arr);
   n2 = _mm256_xor_si256(n2, result);
-  
+
   x = _mm256_add_epi32(n2, subkeys->k[2]);
-    idx87 = _mm256_and_si256(_mm256_srli_epi32(x, 24), _mm256_set1_epi32(0xff));
+  idx87 = _mm256_and_si256(_mm256_srli_epi32(x, 24), _mm256_set1_epi32(0xff));
   idx65 = _mm256_and_si256(_mm256_srli_epi32(x, 16), _mm256_set1_epi32(0xff));
   idx43 = _mm256_and_si256(_mm256_srli_epi32(x, 8), _mm256_set1_epi32(0xff));
   idx21 = _mm256_and_si256(x, _mm256_set1_epi32(0xff));
@@ -1095,9 +1095,9 @@ static inline void magma_encrypt_8blocks(magma_subkeys_256 *subkeys,
 
   result = _mm256_load_si256((__m256i *)result_arr);
   n1 = _mm256_xor_si256(n1, result);
-  
+
   x = _mm256_add_epi32(n1, subkeys->k[1]);
-    idx87 = _mm256_and_si256(_mm256_srli_epi32(x, 24), _mm256_set1_epi32(0xff));
+  idx87 = _mm256_and_si256(_mm256_srli_epi32(x, 24), _mm256_set1_epi32(0xff));
   idx65 = _mm256_and_si256(_mm256_srli_epi32(x, 16), _mm256_set1_epi32(0xff));
   idx43 = _mm256_and_si256(_mm256_srli_epi32(x, 8), _mm256_set1_epi32(0xff));
   idx21 = _mm256_and_si256(x, _mm256_set1_epi32(0xff));
@@ -1113,9 +1113,9 @@ static inline void magma_encrypt_8blocks(magma_subkeys_256 *subkeys,
 
   result = _mm256_load_si256((__m256i *)result_arr);
   n2 = _mm256_xor_si256(n2, result);
-  
+
   x = _mm256_add_epi32(n2, subkeys->k[0]);
-    idx87 = _mm256_and_si256(_mm256_srli_epi32(x, 24), _mm256_set1_epi32(0xff));
+  idx87 = _mm256_and_si256(_mm256_srli_epi32(x, 24), _mm256_set1_epi32(0xff));
   idx65 = _mm256_and_si256(_mm256_srli_epi32(x, 16), _mm256_set1_epi32(0xff));
   idx43 = _mm256_and_si256(_mm256_srli_epi32(x, 8), _mm256_set1_epi32(0xff));
   idx21 = _mm256_and_si256(x, _mm256_set1_epi32(0xff));
@@ -1167,7 +1167,7 @@ static long double benchmark_simd_minimal(magma_subkeys_256 *ctx,
   long double bytes_processed = 64 * iterations;
   long double speed = bytes_processed / simd_time;
   printf("bytes_processed_simd: %Lf\n", bytes_processed);
-  printf("speed_simd: %.2Lf МБайт/с\n", speed / 1000000);
+  printf("speed_simd: %.2Lf ГБит/с\n", 8 * speed / 1000000000);
 
   printf("  Минимальный SIMD тест (8 блоков за операцию):\n");
   printf("    Итераций: %d\n", iterations);
@@ -1196,7 +1196,7 @@ static long double benchmark_scalar_minimal(magma_subkeys *ctx, int iterations,
   long double bytes_processed = 8 * iterations;
   long double speed = bytes_processed / scalar_time;
   printf("bytes_processed_scalar: %Lf\n", bytes_processed);
-  printf("speed_scalar: %.2Lf МБайт/с\n", speed / 1000000);
+  printf("speed_scalar: %.2Lf Гбит/с\n", 8 * speed / 1000000000);
 
   printf("  Скалярный тест (1 блок за операцию):\n");
   printf("    Итераций: %d\n", iterations);
@@ -1379,7 +1379,8 @@ void debug_simd_data_loading() {
   __m256i n1 = _mm256_and_si256(all_blocks, mask_n1);
   n1 = _mm256_srli_epi64(n1, 32);
 
-  uint32_t n1_arr[8] __attribute__((aligned(32))), n2_arr[8] __attribute__((aligned(32)));
+  uint32_t n1_arr[8] __attribute__((aligned(32))),
+      n2_arr[8] __attribute__((aligned(32)));
   _mm256_store_si256((__m256i *)n1_arr, n1);
   _mm256_store_si256((__m256i *)n2_arr, n2);
 
