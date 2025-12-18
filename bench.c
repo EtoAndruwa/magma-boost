@@ -28,6 +28,9 @@ typedef struct {
 #define BSWAP32(n) __builtin_bswap32(n)
 #endif
 
+long double scalar_time = 0;
+long double simd_time = 0;
+
 // Высокоточный таймер
 static uint64_t get_nanoseconds() {
   struct timespec ts;
@@ -395,12 +398,24 @@ static uint32_t pi21[256] = {
     0x0007d800, 0x0007c800, 0x0007f000, 0x0007c000, 0x0007e800, 0x0007b800,
     0x00078000, 0x00079800, 0x0007f800, 0x00078800};
 
+void print_magma_blocks(const uint8_t *data, size_t total_bytes) {
+  size_t num_blocks = total_bytes / 8;
+
+  for (size_t block = 0; block < num_blocks; block++) {
+    printf("Блок %2zu: ", block);
+    for (size_t i = 0; i < 8; i++) {
+      printf("%02x ", data[block * 8 + i]);
+    }
+    printf("\n");
+  }
+}
+
 inline static uint32_t f(uint32_t x) {
   return pi87[x >> 24 & 0xff] | pi65[x >> 16 & 0xff] | pi43[x >> 8 & 0xff] |
          pi21[x & 0xff];
 }
 
-static long double magma_encrypt_scalar(magma_subkeys *subkeys, uint8_t *out,
+inline static void magma_encrypt_scalar(magma_subkeys *subkeys, uint8_t *out,
                                         const uint8_t *in) {
   uint32_t n2 = GETU32_BE(in);
   uint32_t n1 = GETU32_BE(in + 4);
@@ -494,12 +509,24 @@ void magma_set_key_256(magma_subkeys_256 *subkeys, const uint8_t *key) {
   subkeys->k[4] = _mm256_set1_epi32(GETU32_BE(key + 16));
   subkeys->k[5] = _mm256_set1_epi32(GETU32_BE(key + 20));
   subkeys->k[6] = _mm256_set1_epi32(GETU32_BE(key + 24));
-  subkeys->k[7] = _mm256_set1_epi32(GETU32_BE(key + 26));
+  subkeys->k[7] = _mm256_set1_epi32(GETU32_BE(key + 28));
 }
 
-inline static long double magma_encrypt_8blocks(magma_subkeys_256 *subkeys,
-                                                uint8_t *out,
-                                                const uint8_t *in) {
+void print_m256i_hex(__m256i value, const char *name) {
+  printf("%s: ", name);
+
+  alignas(32) uint32_t values[8];
+  _mm256_store_si256((__m256i *)values, value);
+
+  for (int i = 0; i < 8; i++) {
+    printf("0x%08x ", values[i]);
+  }
+  printf("\n");
+}
+
+static inline void magma_encrypt_8blocks(magma_subkeys_256 *subkeys,
+                                         uint8_t *out, const uint8_t *in) {
+
   __m256i block0 = _mm256_loadu_si256((const __m256i *)(in + 0));
   __m256i block1 = _mm256_loadu_si256((const __m256i *)(in + 32));
 
@@ -510,25 +537,17 @@ inline static long double magma_encrypt_8blocks(magma_subkeys_256 *subkeys,
   block0 = _mm256_shuffle_epi8(block0, shuffle_mask);
   block1 = _mm256_shuffle_epi8(block1, shuffle_mask);
 
-  const __m256i mask_n2 =
-      _mm256_set_epi32(0xFFFFFFFF, 0x00000000, 0xFFFFFFFF, 0x00000000,
-                       0xFFFFFFFF, 0x00000000, 0xFFFFFFFF, 0x00000000);
+  __m256i even0_mask = _mm256_set_epi32(0, 0, 0, 0, 6, 4, 2, 0);
+  __m256i odd0_mask = _mm256_set_epi32(0, 0, 0, 0, 7, 5, 3, 1);
 
-  const __m256i mask_n1 =
-      _mm256_set_epi32(0x00000000, 0xFFFFFFFF, 0x00000000, 0xFFFFFFFF,
-                       0x00000000, 0xFFFFFFFF, 0x00000000, 0xFFFFFFFF);
+  __m256i even0 = _mm256_permutevar8x32_epi32(block0, even0_mask);
+  __m256i odd0 = _mm256_permutevar8x32_epi32(block0, odd0_mask);
 
-  __m256i combined0 = _mm256_permute2x128_si256(
-      block0, block1, 0x20); // [block0_low, block1_low]
-  __m256i combined1 = _mm256_permute2x128_si256(
-      block0, block1, 0x31); // [block0_high, block1_high]
+  __m256i even1 = _mm256_permutevar8x32_epi32(block1, even0_mask);
+  __m256i odd1 = _mm256_permutevar8x32_epi32(block1, odd0_mask);
 
-  __m256i all_blocks = _mm256_set_m128i(_mm256_extracti128_si256(combined1, 0),
-                                        _mm256_extracti128_si256(combined0, 0));
-
-  __m256i n2 = _mm256_and_si256(all_blocks, mask_n2);
-  __m256i n1 = _mm256_and_si256(all_blocks, mask_n1);
-  n1 = _mm256_srli_epi64(n1, 32);
+  __m256i n2 = _mm256_permute2x128_si256(even0, even1, 0x20);
+  __m256i n1 = _mm256_permute2x128_si256(odd0, odd1, 0x20);
 
   n2 = _mm256_xor_si256(n2, f_simd(_mm256_add_epi32(n1, subkeys->k[0])));
   n1 = _mm256_xor_si256(n1, f_simd(_mm256_add_epi32(n2, subkeys->k[1])));
@@ -557,26 +576,27 @@ inline static long double magma_encrypt_8blocks(magma_subkeys_256 *subkeys,
   n2 = _mm256_xor_si256(n2, f_simd(_mm256_add_epi32(n1, subkeys->k[6])));
   n1 = _mm256_xor_si256(n1, f_simd(_mm256_add_epi32(n2, subkeys->k[7])));
 
-  n2 = _mm256_xor_si256(n2, f_simd(_mm256_add_epi32(n1, subkeys->k[0])));
-  n1 = _mm256_xor_si256(n1, f_simd(_mm256_add_epi32(n2, subkeys->k[1])));
-  n2 = _mm256_xor_si256(n2, f_simd(_mm256_add_epi32(n1, subkeys->k[2])));
-  n1 = _mm256_xor_si256(n1, f_simd(_mm256_add_epi32(n2, subkeys->k[3])));
-  n2 = _mm256_xor_si256(n2, f_simd(_mm256_add_epi32(n1, subkeys->k[4])));
-  n1 = _mm256_xor_si256(n1, f_simd(_mm256_add_epi32(n2, subkeys->k[5])));
-  n2 = _mm256_xor_si256(n2, f_simd(_mm256_add_epi32(n1, subkeys->k[6])));
-  n1 = _mm256_xor_si256(n1, f_simd(_mm256_add_epi32(n2, subkeys->k[7])));
+  n2 = _mm256_xor_si256(n2, f_simd(_mm256_add_epi32(n1, subkeys->k[7])));
+  n1 = _mm256_xor_si256(n1, f_simd(_mm256_add_epi32(n2, subkeys->k[6])));
+  n2 = _mm256_xor_si256(n2, f_simd(_mm256_add_epi32(n1, subkeys->k[5])));
+  n1 = _mm256_xor_si256(n1, f_simd(_mm256_add_epi32(n2, subkeys->k[4])));
+  n2 = _mm256_xor_si256(n2, f_simd(_mm256_add_epi32(n1, subkeys->k[3])));
+  n1 = _mm256_xor_si256(n1, f_simd(_mm256_add_epi32(n2, subkeys->k[2])));
+  n2 = _mm256_xor_si256(n2, f_simd(_mm256_add_epi32(n1, subkeys->k[1])));
+  n1 = _mm256_xor_si256(n1, f_simd(_mm256_add_epi32(n2, subkeys->k[0])));
 
-  __m256i n2_shifted = _mm256_slli_epi64(n2, 32);
-  __m256i combined = _mm256_or_si256(n2_shifted, n1);
+  __m256i combined_low = _mm256_unpacklo_epi32(n1, n2);
+  __m256i combined_high = _mm256_unpackhi_epi32(n1, n2);
+
+  combined_low = _mm256_permute4x64_epi64(combined_low, 0b11011000);
+  combined_high = _mm256_permute4x64_epi64(combined_high, 0b11011000);
 
 #ifdef __LITTLE_ENDIAN
-  combined = _mm256_shuffle_epi8(combined, shuffle_mask);
+  combined_low = _mm256_shuffle_epi8(combined_low, shuffle_mask);
+  combined_high = _mm256_shuffle_epi8(combined_high, shuffle_mask);
 #endif
-
-  _mm256_storeu_si256((__m256i *)(out),
-                      _mm256_permute2x128_si256(combined, combined, 0x20));
-  _mm256_storeu_si256((__m256i *)(out + 32),
-                      _mm256_permute2x128_si256(combined, combined, 0x31));
+  _mm256_storeu_si256((__m256i *)(out), combined_low);
+  _mm256_storeu_si256((__m256i *)(out + 32), combined_high);
 }
 
 static void print_speed(double bytes_per_second) {
@@ -601,78 +621,242 @@ static uint64_t benchmark_simd_minimal(magma_subkeys_256 *ctx, int iterations,
                                        uint8_t *plaintext_256,
                                        uint8_t *ciphertext_256) {
   uint64_t start = get_nanoseconds();
-  volatile uint64_t checksum = 0;
-  for (int iter = 0; iter < iterations; iter++) {
-    // Меняем входные данные
-    for (int block = 0; block < 8; block++) {
-      plaintext_256[block * 8] = (plaintext_256[block * 8] + 1) & 0xFF;
-    }
+  for (int iter = 0; iter < iterations; iter++)
     magma_encrypt_8blocks(ctx, ciphertext_256, plaintext_256);
-    checksum ^= ((uint64_t *)ciphertext_256)[0];
-  }
   uint64_t end = get_nanoseconds();
 
-  long double total_time = ((end - start) / 1e9);
-  long double ops_per_sec = iterations / total_time;
+  print_magma_blocks(ciphertext_256, 64);
+
+  simd_time = (end - start) / 1e9;
+  long double ops_per_sec = iterations / simd_time;
   long double bytes_processed = 64 * iterations;
-  long double speed = bytes_processed / total_time;
+  long double speed = bytes_processed / simd_time;
 
   printf("  Минимальный SIMD тест (8 блоков за операцию):\n");
   printf("    Итераций: %d\n", iterations);
-  printf("    Время: %.9Lf сек\n", total_time);
+  printf("    Время: %.9Lf сек\n", simd_time);
   printf("    Операций/сек: %.0Lf\n", ops_per_sec);
-  printf("    Время на операцию: %.1Lf нс\n", total_time / iterations * 1e9L);
+  printf("    Время на операцию: %.1Lf нс\n", simd_time / iterations * 1e9L);
   printf("    Скорость: ");
   print_speed(speed);
-  return checksum;
+  return simd_time;
 }
 
-inline static uint64_t benchmark_scalar_minimal(magma_subkeys *ctx,
-                                                int iterations,
-                                                uint8_t *plaintext,
-                                                uint8_t *ciphertext) {
+static uint64_t benchmark_scalar_minimal(magma_subkeys *ctx, int iterations,
+                                         uint8_t *plaintext,
+                                         uint8_t *ciphertext) {
   fill_random(plaintext, 8);
 
-  volatile uint64_t checksum = 0;
-
   uint64_t start = get_nanoseconds();
-  for (int iter = 0; iter < iterations; iter++) {
-    plaintext[0] = (plaintext[0] + 1) & 0xFF;
+  for (int iter = 0; iter < iterations; iter++)
     magma_encrypt_scalar(ctx, ciphertext, plaintext);
-    checksum ^= ((uint64_t *)ciphertext)[0];
-  }
   uint64_t end = get_nanoseconds();
 
-  long double total_time = ((end - start) / 1e9);
-  long double ops_per_sec = iterations / total_time;
+  print_magma_blocks(ciphertext, 8);
+
+  scalar_time = (end - start) / 1e9;
+  long double ops_per_sec = iterations / scalar_time;
   long double bytes_processed = 8 * iterations;
-  long double speed = bytes_processed / total_time;
+  long double speed = bytes_processed / scalar_time;
 
   printf("  Скалярный тест (1 блок за операцию):\n");
   printf("    Итераций: %d\n", iterations);
-  printf("    Время: %.9Lf сек\n", total_time);
+  printf("    Время: %.9Lf сек\n", scalar_time);
   printf("    Операций/сек: %.0Lf\n", ops_per_sec);
-  printf("    Время на операцию: %.1Lf нс\n", total_time / iterations * 1e9L);
+  printf("    Время на операцию: %.1Lf нс\n", scalar_time / iterations * 1e9L);
   printf("    Скорость: ");
   print_speed(speed);
   printf("\n");
 
-  return checksum;
+  return scalar_time;
 }
 
-void print_magma_blocks(const uint8_t *data, size_t total_bytes) {
-  size_t num_blocks = total_bytes / 8;
+void test_f_function() {
+  printf("\n=== ТЕСТ f и f_simd ФУНКЦИЙ ===\n");
 
-  for (size_t block = 0; block < num_blocks; block++) {
-    printf("Блок %2zu: ", block);
-    for (size_t i = 0; i < 8; i++) {
-      printf("%02x ", data[block * 8 + i]);
+  // Тестовые значения
+  uint32_t test_values[] = {0x01234567, 0x89ABCDEF, 0xFEDCBA98, 0x76543210,
+                            0x00000000, 0xFFFFFFFF, 0x12345678, 0x9ABCDEF0};
+
+  for (int i = 0; i < 8; i++) {
+    uint32_t scalar_result = f(test_values[i]);
+
+    // Создаем SIMD вектор с одним значением, повторенным 8 раз
+    __m256i simd_input = _mm256_set1_epi32(test_values[i]);
+    __m256i simd_result_vec = f_simd(simd_input);
+
+    // Извлекаем первое значение
+    uint32_t simd_result_arr[8];
+    _mm256_storeu_si256((__m256i *)simd_result_arr, simd_result_vec);
+    uint32_t simd_result = simd_result_arr[0];
+
+    printf("Тест %d: 0x%08x\n", i, test_values[i]);
+    printf("  Скалярный f: 0x%08x\n", scalar_result);
+    printf("  SIMD f_simd: 0x%08x\n", simd_result);
+
+    if (scalar_result != simd_result) {
+      printf("  ✗ НЕ СОВПАДАЕТ!\n");
+
+      // Детальный debug
+      uint8_t *bytes = (uint8_t *)&test_values[i];
+      printf("    Байты: %02x %02x %02x %02x\n", bytes[0], bytes[1], bytes[2],
+             bytes[3]);
+      printf("    pi87[%02x]=0x%08x, pi65[%02x]=0x%08x\n", bytes[3],
+             pi87[bytes[3]], bytes[2], pi65[bytes[2]]);
+      printf("    pi43[%02x]=0x%08x, pi21[%02x]=0x%08x\n", bytes[1],
+             pi43[bytes[1]], bytes[0], pi21[bytes[0]]);
+    } else {
+      printf("  ✓ СОВПАДАЕТ\n");
     }
     printf("\n");
   }
 }
 
+void test_single_block_encryption() {
+  printf("\n=== ТЕСТ ОДНОГО БЛОКА ===\n");
+
+  uint8_t key[32] = {0xff, 0xee, 0xdd, 0xcc, 0xbb, 0xaa, 0x99, 0x88,
+                     0x77, 0x66, 0x55, 0x44, 0x33, 0x22, 0x11, 0x00,
+                     0xf0, 0xf1, 0xf2, 0xf3, 0xf4, 0xf5, 0xf6, 0xf7,
+                     0xf8, 0xf9, 0xfa, 0xfb, 0xfc, 0xfd, 0xfe, 0xff};
+
+  magma_subkeys ctx;
+  magma_subkeys_256 ctx_256;
+  magma_set_key(&ctx, key);
+  magma_set_key_256(&ctx_256, key);
+
+  uint8_t plaintext[8] = {0x01, 0x23, 0x45, 0x67, 0x89, 0xAB, 0xCD, 0xEF};
+  uint8_t ciphertext_scalar[8];
+  uint8_t ciphertext_simd[64];
+
+  printf("Plaintext: ");
+  for (int i = 0; i < 8; i++)
+    printf("%02x ", plaintext[i]);
+  printf("\n\n");
+
+  magma_encrypt_scalar(&ctx, ciphertext_scalar, plaintext);
+  printf("Скалярный ciphertext: ");
+  for (int i = 0; i < 8; i++)
+    printf("%02x ", ciphertext_scalar[i]);
+  printf("\n");
+
+  uint8_t plaintext_256[64];
+  for (int i = 0; i < 8; i++) {
+    memcpy(plaintext_256 + i * 8, plaintext, 8);
+  }
+
+  magma_encrypt_8blocks(&ctx_256, ciphertext_simd, plaintext_256);
+
+  printf("SIMD ciphertext (первый блок): ");
+  for (int i = 0; i < 8; i++)
+    printf("%02x ", ciphertext_simd[i]);
+  printf("\n\n");
+
+  // Сравнение
+  int match = 1;
+  for (int i = 0; i < 8; i++) {
+    if (ciphertext_scalar[i] != ciphertext_simd[i]) {
+      match = 0;
+      printf("Ошибка на позиции %d: скаляр=%02x, SIMD=%02x\n", i,
+             ciphertext_scalar[i], ciphertext_simd[i]);
+    }
+  }
+
+  if (match) {
+    printf("✓ Результаты совпадают!\n");
+  } else {
+    printf("✗ Результаты НЕ совпадают\n");
+  }
+}
+
+void debug_simd_data_loading() {
+  printf("\n=== DEBUG ЗАГРУЗКИ ДАННЫХ ===\n");
+
+  uint8_t plaintext[8] = {0x01, 0x23, 0x45, 0x67, 0x89, 0xAB, 0xCD, 0xEF};
+
+  // 1. Как скалярная версия видит данные
+  uint32_t n2_scalar = GETU32_BE(plaintext);
+  uint32_t n1_scalar = GETU32_BE(plaintext + 4);
+
+  printf("Скалярная загрузка (GETU32_BE):\n");
+  printf("  n2 = 0x%08x (из байтов: ", n2_scalar);
+  for (int i = 0; i < 4; i++)
+    printf("%02x ", plaintext[i]);
+  printf(")\n");
+
+  printf("  n1 = 0x%08x (из байтов: ", n1_scalar);
+  for (int i = 4; i < 8; i++)
+    printf("%02x ", plaintext[i]);
+  printf(")\n\n");
+
+  // 2. Как SIMD версия видит данные
+  uint8_t plaintext_256[64];
+  for (int i = 0; i < 8; i++) {
+    memcpy(plaintext_256 + i * 8, plaintext, 8);
+  }
+
+  __m256i block0 = _mm256_loadu_si256((const __m256i *)(plaintext_256 + 0));
+  __m256i block1 = _mm256_loadu_si256((const __m256i *)(plaintext_256 + 32));
+
+  uint8_t loaded_bytes[64];
+  _mm256_storeu_si256((__m256i *)(loaded_bytes), block0);
+  _mm256_storeu_si256((__m256i *)(loaded_bytes + 32), block1);
+
+  printf("SIMD загрузка (первый блок):\n");
+  printf("  Байты как загружены: ");
+  for (int i = 0; i < 8; i++)
+    printf("%02x ", loaded_bytes[i]);
+  printf("\n");
+
+  // 3. Проверяем shuffle
+  const __m256i shuffle_mask =
+      _mm256_set_epi8(12, 13, 14, 15, 8, 9, 10, 11, 4, 5, 6, 7, 0, 1, 2, 3, 12,
+                      13, 14, 15, 8, 9, 10, 11, 4, 5, 6, 7, 0, 1, 2, 3);
+
+  __m256i shuffled0 = _mm256_shuffle_epi8(block0, shuffle_mask);
+  __m256i shuffled1 = _mm256_shuffle_epi8(block1, shuffle_mask);
+
+  uint8_t shuffled_bytes[64];
+  _mm256_storeu_si256((__m256i *)(shuffled_bytes), shuffled0);
+  _mm256_storeu_si256((__m256i *)(shuffled_bytes + 32), shuffled1);
+
+  printf("  После shuffle: ");
+  for (int i = 0; i < 8; i++)
+    printf("%02x ", shuffled_bytes[i]);
+  printf("\n");
+
+  // 4. Проверяем разделение на n1 и n2
+  const __m256i mask_n2 =
+      _mm256_set_epi32(0xFFFFFFFF, 0x00000000, 0xFFFFFFFF, 0x00000000,
+                       0xFFFFFFFF, 0x00000000, 0xFFFFFFFF, 0x00000000);
+
+  const __m256i mask_n1 =
+      _mm256_set_epi32(0x00000000, 0xFFFFFFFF, 0x00000000, 0xFFFFFFFF,
+                       0x00000000, 0xFFFFFFFF, 0x00000000, 0xFFFFFFFF);
+
+  __m256i combined0 = _mm256_permute2x128_si256(shuffled0, shuffled1, 0x20);
+  __m256i combined1 = _mm256_permute2x128_si256(shuffled0, shuffled1, 0x31);
+
+  __m256i all_blocks = _mm256_set_m128i(_mm256_extracti128_si256(combined1, 0),
+                                        _mm256_extracti128_si256(combined0, 0));
+
+  __m256i n2 = _mm256_and_si256(all_blocks, mask_n2);
+  __m256i n1 = _mm256_and_si256(all_blocks, mask_n1);
+  n1 = _mm256_srli_epi64(n1, 32);
+
+  uint32_t n1_arr[8], n2_arr[8];
+  _mm256_storeu_si256((__m256i *)n1_arr, n1);
+  _mm256_storeu_si256((__m256i *)n2_arr, n2);
+
+  printf("\nРазделение на n1 и n2 (первый блок):\n");
+  printf("  n2[0] = 0x%08x (ожидается 0x%08x)\n", n2_arr[0], n2_scalar);
+  printf("  n1[0] = 0x%08x (ожидается 0x%08x)\n", n1_arr[0], n1_scalar);
+}
+
 int main() {
+  test_f_function();
+  test_single_block_encryption();
+
   // Тестовый ключ из ГОСТ
   uint8_t key[32] = {0xff, 0xee, 0xdd, 0xcc, 0xbb, 0xaa, 0x99, 0x88,
                      0x77, 0x66, 0x55, 0x44, 0x33, 0x22, 0x11, 0x00,
@@ -688,19 +872,12 @@ int main() {
 
   printf("\nТест производительности:\n");
 
-  int iterations = 1;
+  int iterations = 100000000;
 
   uint8_t plaintext[8];
   uint8_t ciphertext[8];
 
-  uint64_t checksum_scalar =
-      benchmark_scalar_minimal(&ctx, iterations, plaintext, ciphertext);
-
-  printf("\nchecksum_scalar: %ld\n", checksum_scalar);
-  printf("\nPlaintext:");
-  print_magma_blocks(plaintext, 8);
-  printf("\nCiphertext:");
-  print_magma_blocks(ciphertext, 8);
+  benchmark_scalar_minimal(&ctx, iterations, plaintext, ciphertext);
 
   uint8_t plaintext_256[64] __attribute__((aligned(32)));
   uint8_t ciphertext_256[64] __attribute__((aligned(32)));
@@ -709,16 +886,8 @@ int main() {
     memcpy(plaintext_256 + i * 8, plaintext, 8);
   }
 
-  printf("\nPlaintext before:\n");
-  print_magma_blocks(plaintext_256, 64);
+  benchmark_simd_minimal(&ctx_256, iterations, plaintext_256, ciphertext_256);
 
-  uint64_t checksum_simd = benchmark_simd_minimal(
-      &ctx_256, iterations, plaintext_256, ciphertext_256);
-
-  printf("\nchecksum_simd: %ld\n", checksum_simd);
-  printf("\nPlaintext after:\n");
-  print_magma_blocks(plaintext_256, 64);
-  printf("\nCiphertext:\n");
-  print_magma_blocks(ciphertext_256, 64);
+  printf("\nSpeedup: %LF\n", scalar_time * 8 / simd_time);
   return 0;
 }
