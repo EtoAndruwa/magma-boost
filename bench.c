@@ -466,13 +466,14 @@ inline static void magma_encrypt_scalar(magma_subkeys *subkeys, uint8_t *out,
 }
 
 inline static __m256i f_simd(__m256i x) {
-  __m256i idx87 =
+  __m256i idx87 __attribute__((aligned(32))) =
       _mm256_and_si256(_mm256_srli_epi32(x, 24), _mm256_set1_epi32(0xff));
-  __m256i idx65 =
+  __m256i idx65 __attribute__((aligned(32))) =
       _mm256_and_si256(_mm256_srli_epi32(x, 16), _mm256_set1_epi32(0xff));
-  __m256i idx43 =
+  __m256i idx43 __attribute__((aligned(32))) =
       _mm256_and_si256(_mm256_srli_epi32(x, 8), _mm256_set1_epi32(0xff));
-  __m256i idx21 = _mm256_and_si256(x, _mm256_set1_epi32(0xff));
+  __m256i idx21 __attribute__((aligned(32))) =
+      _mm256_and_si256(x, _mm256_set1_epi32(0xff));
 
   uint32_t idx87_arr[8] __attribute__((aligned(32))),
       idx65_arr[8] __attribute__((aligned(32))),
@@ -530,8 +531,8 @@ void print_m256i_hex(__m256i value, const char *name) {
 
 static inline void magma_encrypt_8blocks(magma_subkeys_256 *subkeys,
                                          uint8_t *out, const uint8_t *in) {
-  __m256i block0 = _mm256_loadu_si256((const __m256i *)(in + 0));
-  __m256i block1 = _mm256_loadu_si256((const __m256i *)(in + 32));
+  __m256i block0 = _mm256_load_si256((const __m256i *)(in + 0));
+  __m256i block1 = _mm256_load_si256((const __m256i *)(in + 32));
 
   block0 = _mm256_shuffle_epi8(block0, subkeys->shuffle_mask);
   block1 = _mm256_shuffle_epi8(block1, subkeys->shuffle_mask);
@@ -619,7 +620,7 @@ static long double benchmark_simd_minimal(magma_subkeys_256 *ctx,
   long double bytes_processed = 64 * iterations;
   long double speed = bytes_processed / simd_time;
   printf("bytes_processed_simd: %Lf\n", bytes_processed);
-  printf("speed_simd: %Lf\n", speed);
+  printf("speed_simd: %.2Lf МБайт/с\n", speed / 1000000);
 
   printf("  Минимальный SIMD тест (8 блоков за операцию):\n");
   printf("    Итераций: %d\n", iterations);
@@ -648,7 +649,7 @@ static long double benchmark_scalar_minimal(magma_subkeys *ctx, int iterations,
   long double bytes_processed = 8 * iterations;
   long double speed = bytes_processed / scalar_time;
   printf("bytes_processed_scalar: %Lf\n", bytes_processed);
-  printf("speed_scalar: %Lf\n", speed);
+  printf("speed_scalar: %.2Lf МБайт/с\n", speed / 1000000);
 
   printf("  Скалярный тест (1 блок за операцию):\n");
   printf("    Итераций: %d\n", iterations);
