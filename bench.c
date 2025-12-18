@@ -18,6 +18,7 @@ typedef struct {
 
 typedef struct {
   __m256i k[8];
+  __m256i shuffle_mask;
 } magma_subkeys_256 __attribute__((aligned(32)));
 
 #define GETU32_BE(pt)                                                          \
@@ -510,6 +511,9 @@ void magma_set_key_256(magma_subkeys_256 *subkeys, const uint8_t *key) {
   subkeys->k[5] = _mm256_set1_epi32(GETU32_BE(key + 20));
   subkeys->k[6] = _mm256_set1_epi32(GETU32_BE(key + 24));
   subkeys->k[7] = _mm256_set1_epi32(GETU32_BE(key + 28));
+  subkeys->shuffle_mask =
+      _mm256_set_epi8(12, 13, 14, 15, 8, 9, 10, 11, 4, 5, 6, 7, 0, 1, 2, 3, 12,
+                      13, 14, 15, 8, 9, 10, 11, 4, 5, 6, 7, 0, 1, 2, 3);
 }
 
 void print_m256i_hex(__m256i value, const char *name) {
@@ -526,16 +530,11 @@ void print_m256i_hex(__m256i value, const char *name) {
 
 static inline void magma_encrypt_8blocks(magma_subkeys_256 *subkeys,
                                          uint8_t *out, const uint8_t *in) {
-
   __m256i block0 = _mm256_loadu_si256((const __m256i *)(in + 0));
   __m256i block1 = _mm256_loadu_si256((const __m256i *)(in + 32));
 
-  const __m256i shuffle_mask =
-      _mm256_set_epi8(12, 13, 14, 15, 8, 9, 10, 11, 4, 5, 6, 7, 0, 1, 2, 3, 12,
-                      13, 14, 15, 8, 9, 10, 11, 4, 5, 6, 7, 0, 1, 2, 3);
-
-  block0 = _mm256_shuffle_epi8(block0, shuffle_mask);
-  block1 = _mm256_shuffle_epi8(block1, shuffle_mask);
+  block0 = _mm256_shuffle_epi8(block0, subkeys->shuffle_mask);
+  block1 = _mm256_shuffle_epi8(block1, subkeys->shuffle_mask);
 
   __m256i even0_mask = _mm256_set_epi32(0, 0, 0, 0, 6, 4, 2, 0);
   __m256i odd0_mask = _mm256_set_epi32(0, 0, 0, 0, 7, 5, 3, 1);
@@ -585,31 +584,18 @@ static inline void magma_encrypt_8blocks(magma_subkeys_256 *subkeys,
   n2 = _mm256_xor_si256(n2, f_simd(_mm256_add_epi32(n1, subkeys->k[1])));
   n1 = _mm256_xor_si256(n1, f_simd(_mm256_add_epi32(n2, subkeys->k[0])));
 
-  __m256i combined_low = _mm256_unpacklo_epi32(n1, n2);
-  __m256i combined_high = _mm256_unpackhi_epi32(n1, n2);
+  block0 = _mm256_unpacklo_epi32(n1, n2);
+  block1 = _mm256_unpackhi_epi32(n1, n2);
 
-  combined_low = _mm256_permute4x64_epi64(combined_low, 0b11011000);
-  combined_high = _mm256_permute4x64_epi64(combined_high, 0b11011000);
+  block0 = _mm256_permute4x64_epi64(block0, 0b11011000);
+  block1 = _mm256_permute4x64_epi64(block1, 0b11011000);
 
 #ifdef __LITTLE_ENDIAN
-  combined_low = _mm256_shuffle_epi8(combined_low, shuffle_mask);
-  combined_high = _mm256_shuffle_epi8(combined_high, shuffle_mask);
+  block0 = _mm256_shuffle_epi8(block0, subkeys->shuffle_mask);
+  block1 = _mm256_shuffle_epi8(block1, subkeys->shuffle_mask);
 #endif
-  _mm256_storeu_si256((__m256i *)(out), combined_low);
-  _mm256_storeu_si256((__m256i *)(out + 32), combined_high);
-}
-
-static void print_speed(double bytes_per_second) {
-  const char *units[] = {"B/s", "KB/s", "MB/s", "GB/s"};
-  int unit_index = 0;
-  double speed = bytes_per_second;
-
-  while (speed >= 1024.0 && unit_index < 3) {
-    speed /= 1024.0;
-    unit_index++;
-  }
-
-  printf("%.2f %s", speed, units[unit_index]);
+  _mm256_storeu_si256((__m256i *)(out), block0);
+  _mm256_storeu_si256((__m256i *)(out + 32), block1);
 }
 
 static void fill_random(uint8_t *data, size_t size) {
@@ -617,9 +603,10 @@ static void fill_random(uint8_t *data, size_t size) {
     data[i] = rand() & 0xFF;
 }
 
-static uint64_t benchmark_simd_minimal(magma_subkeys_256 *ctx, int iterations,
-                                       uint8_t *plaintext_256,
-                                       uint8_t *ciphertext_256) {
+static long double benchmark_simd_minimal(magma_subkeys_256 *ctx,
+                                          int iterations,
+                                          uint8_t *plaintext_256,
+                                          uint8_t *ciphertext_256) {
   uint64_t start = get_nanoseconds();
   for (int iter = 0; iter < iterations; iter++)
     magma_encrypt_8blocks(ctx, ciphertext_256, plaintext_256);
@@ -631,21 +618,23 @@ static uint64_t benchmark_simd_minimal(magma_subkeys_256 *ctx, int iterations,
   long double ops_per_sec = iterations / simd_time;
   long double bytes_processed = 64 * iterations;
   long double speed = bytes_processed / simd_time;
+  printf("bytes_processed_simd: %Lf\n", bytes_processed);
+  printf("speed_simd: %Lf\n", speed);
 
   printf("  Минимальный SIMD тест (8 блоков за операцию):\n");
   printf("    Итераций: %d\n", iterations);
   printf("    Время: %.9Lf сек\n", simd_time);
   printf("    Операций/сек: %.0Lf\n", ops_per_sec);
   printf("    Время на операцию: %.1Lf нс\n", simd_time / iterations * 1e9L);
-  printf("    Скорость: ");
-  print_speed(speed);
-  return simd_time;
+  return speed;
 }
 
-static uint64_t benchmark_scalar_minimal(magma_subkeys *ctx, int iterations,
-                                         uint8_t *plaintext,
-                                         uint8_t *ciphertext) {
+static long double benchmark_scalar_minimal(magma_subkeys *ctx, int iterations,
+                                            uint8_t *plaintext,
+                                            uint8_t *ciphertext) {
   fill_random(plaintext, 8);
+
+  iterations = iterations * 8;
 
   uint64_t start = get_nanoseconds();
   for (int iter = 0; iter < iterations; iter++)
@@ -658,17 +647,15 @@ static uint64_t benchmark_scalar_minimal(magma_subkeys *ctx, int iterations,
   long double ops_per_sec = iterations / scalar_time;
   long double bytes_processed = 8 * iterations;
   long double speed = bytes_processed / scalar_time;
+  printf("bytes_processed_scalar: %Lf\n", bytes_processed);
+  printf("speed_scalar: %Lf\n", speed);
 
   printf("  Скалярный тест (1 блок за операцию):\n");
   printf("    Итераций: %d\n", iterations);
   printf("    Время: %.9Lf сек\n", scalar_time);
   printf("    Операций/сек: %.0Lf\n", ops_per_sec);
   printf("    Время на операцию: %.1Lf нс\n", scalar_time / iterations * 1e9L);
-  printf("    Скорость: ");
-  print_speed(speed);
-  printf("\n");
-
-  return scalar_time;
+  return speed;
 }
 
 void test_f_function() {
@@ -872,12 +859,13 @@ int main() {
 
   printf("\nТест производительности:\n");
 
-  int iterations = 100000000;
-
   uint8_t plaintext[8];
   uint8_t ciphertext[8];
 
-  benchmark_scalar_minimal(&ctx, iterations, plaintext, ciphertext);
+  int iterations = 1000000;
+
+  long double speed_scalar =
+      benchmark_scalar_minimal(&ctx, iterations, plaintext, ciphertext);
 
   uint8_t plaintext_256[64] __attribute__((aligned(32)));
   uint8_t ciphertext_256[64] __attribute__((aligned(32)));
@@ -886,8 +874,9 @@ int main() {
     memcpy(plaintext_256 + i * 8, plaintext, 8);
   }
 
-  benchmark_simd_minimal(&ctx_256, iterations, plaintext_256, ciphertext_256);
+  long double speed_simd = benchmark_simd_minimal(
+      &ctx_256, iterations, plaintext_256, ciphertext_256);
 
-  printf("\nSpeedup: %LF\n", scalar_time * 8 / simd_time);
+  printf("\nSpeedup: %LF\n", speed_simd / speed_scalar);
   return 0;
 }
