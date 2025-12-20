@@ -10,7 +10,6 @@ typedef struct {
   uint32_t k[8];
 } magma_subkeys;
 
-
 #define GETU32_BE(pt)                                                          \
   (((uint32_t)(pt)[0] << 24) | ((uint32_t)(pt)[1] << 16) |                     \
    ((uint32_t)(pt)[2] << 8) | ((uint32_t)(pt)[3]))
@@ -204,8 +203,8 @@ __attribute((noinline)) uint32_t f(uint32_t x) {
          pi21[x & 0xff];
 }
 
-__attribute((noinline)) void magma_encrypt_scalar(magma_subkeys *subkeys, uint8_t *out,
-                                        const uint8_t *in) {
+__attribute((noinline)) void
+magma_encrypt_scalar(magma_subkeys *subkeys, uint8_t *out, const uint8_t *in) {
   uint32_t n2 = GETU32_BE(in);
   uint32_t n1 = GETU32_BE(in + 4);
 

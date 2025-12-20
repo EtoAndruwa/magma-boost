@@ -8,14 +8,9 @@ typedef struct {
   __m256i shuffle_mask;
 } magma_subkeys_256 __attribute__((aligned(32)));
 
-
 #define GETU32_BE(pt)                                                          \
   (((uint32_t)(pt)[0] << 24) | ((uint32_t)(pt)[1] << 16) |                     \
    ((uint32_t)(pt)[2] << 8) | ((uint32_t)(pt)[3]))
-
-#ifndef BSWAP32
-#define BSWAP32(n) __builtin_bswap32(n)
-#endif
 
 static uint32_t pi87_256[256] __attribute__((aligned(32))) = {
     0x000000c0, 0x000000f0, 0x00000090, 0x000000a8, 0x000000b0, 0x000000c8,

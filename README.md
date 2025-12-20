@@ -130,17 +130,6 @@ Speedup: 2.139166
 
 Gost engine:
 ```
-Doing gost89 for 10s on 16 size blocks: 12989906 gost89's in 9.96s
-Doing gost89 for 10s on 64 size blocks: 3334831 gost89's in 9.96s
-Doing gost89 for 10s on 256 size blocks: 864734 gost89's in 9.97s
-Doing gost89 for 10s on 1024 size blocks: 210879 gost89's in 9.97s
-Doing gost89 for 10s on 8192 size blocks: 25982 gost89's in 9.96s
-Doing gost89 for 10s on 16384 size blocks: 13322 gost89's in 9.94s
-version: 3.0.17
-built on: Fri Sep 26 18:59:22 2025 UTC
-options: bn(64,64)
-compiler: gcc -fPIC -pthread -m64 -Wa,--noexecstack -Wall -fzero-call-used-regs=used-gpr -DOPENSSL_TLS_SECURITY_LEVEL=2 -Wa,--noexecstack -g -O2 -ffile-prefix-map=/build/reproducible-path/openssl-3.0.17=. -fstack-protector-strong -Wformat -Werror=format-security -DOPENSSL_USE_NODELETE -DL_ENDIAN -DOPENSSL_PIC -DOPENSSL_BUILDING_OPENSSL -DNDEBUG -Wdate-time -D_FORTIFY_SOURCE=2
-CPUINFO: OPENSSL_ia32cap=0x7ffaf3bfffebffff:0x18c05fdef3bfa7eb
 The 'numbers' are in 1000s of bytes per second processed.
 type             16 bytes     64 bytes    256 bytes   1024 bytes   8192 bytes  16384 bytes
 gost89           20867.32k    21428.63k    22203.80k    21658.99k    21369.93k    21958.52k
